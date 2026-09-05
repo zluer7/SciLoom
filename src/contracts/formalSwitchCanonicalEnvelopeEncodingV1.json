@@ -1,0 +1,103 @@
+{
+  "registryId": "CanonicalEnvelopeEncodingV1",
+  "registryVersion": 1,
+  "byteOrder": "big-endian",
+  "timestampUnit": "unix-epoch-milliseconds-utc",
+  "stringEncoding": "utf-8-no-normalization",
+  "mapKeyOrder": "unsigned-utf8-byte-ascending",
+  "trailingBytes": "reject",
+  "duplicateFields": "reject",
+  "unknownTags": "reject",
+  "unknownVersions": "reject",
+  "tags": {
+    "absent": 0,
+    "null": 1,
+    "false": 2,
+    "true": 3,
+    "string": 16,
+    "i64": 17,
+    "u64": 18,
+    "bytes": 32,
+    "array": 48,
+    "object": 49,
+    "map": 50
+  },
+  "root": {
+    "versionPrefix": "CanonicalEnvelopeEncodingV1",
+    "type": "FormalSwitchImmutableEnvelopeV1",
+    "fields": [
+      { "name": "operationId", "type": "string", "required": true },
+      { "name": "payloadVersion", "type": "u64", "required": true, "const": 1 },
+      { "name": "canonicalEncodingVersion", "type": "string", "required": true, "const": "CanonicalEnvelopeEncodingV1" },
+      { "name": "engineContractVersion", "type": "u64", "required": true, "const": 1 },
+      { "name": "descriptorIdentity", "type": "string", "required": true },
+      { "name": "descriptorVersion", "type": "u64", "required": true },
+      { "name": "descriptorHash", "type": "bytes32", "required": true },
+      { "name": "candidateContractVersion", "type": "u64", "required": true, "const": 1 },
+      { "name": "settlementPlanVersion", "type": "u64", "required": true, "const": 1 },
+      { "name": "transactionPayloadVersion", "type": "u64", "required": true, "const": 1 },
+      { "name": "recoveryPayloadVersion", "type": "u64", "required": true, "const": 1 },
+      { "name": "ownerType", "type": "ownerType", "required": true },
+      { "name": "ownerId", "type": "string", "required": true },
+      { "name": "manuscriptChannel", "type": "manuscriptChannel", "required": true },
+      { "name": "entryKind", "type": "entryKind", "required": true },
+      { "name": "ownerSubtype", "type": "reviewType", "required": false, "absentAllowed": true, "nullAllowed": false },
+      { "name": "oldCurrentFileRefIdentity", "type": "string", "required": true },
+      { "name": "defaultFileRefIdentity", "type": "string", "required": true },
+      { "name": "targetFileRefIdentity", "type": "string", "required": true },
+      { "name": "oldCurrentLogicalSessionIdentity", "type": "string", "required": true },
+      { "name": "targetLogicalSessionIdentity", "type": "string", "required": true },
+      { "name": "candidate", "type": "CandidateIdentityV1", "required": true },
+      { "name": "replacementDto", "type": "ReplacementDtoV1", "required": true },
+      { "name": "ownerProtectedRowDigest", "type": "bytes32", "required": true },
+      { "name": "bindingDigest", "type": "bytes32", "required": true },
+      { "name": "lifecycleCoverageDigest", "type": "bytes32", "required": true },
+      { "name": "oldCurrentExpectedPhysicalRevision", "type": "string", "required": true },
+      { "name": "settlementPlan", "type": "SettlementPlanV1", "required": true },
+      { "name": "transactionPayload", "type": "bytes", "required": true },
+      { "name": "successOperationLogId", "type": "string", "required": true },
+      { "name": "formalSwitchOperationId", "type": "string", "required": true },
+      { "name": "activationLogicalIdentity", "type": "string", "required": true },
+      { "name": "finalizationIdentity", "type": "string", "required": true },
+      { "name": "operationCustodyIdentity", "type": "string", "required": true },
+      { "name": "createdAtEpochMs", "type": "i64", "required": true }
+    ]
+  },
+  "objects": {
+    "CandidateIdentityV1": [
+      { "name": "fileRefIdentity", "type": "string" },
+      { "name": "physicalRevision", "type": "string" },
+      { "name": "sha256", "type": "bytes32" },
+      { "name": "byteLength", "type": "u64" },
+      { "name": "encoding", "type": "string" }
+    ],
+    "ReplacementItemV1": [
+      { "name": "stableKey", "type": "string" },
+      { "name": "value", "type": "nullableString", "nullAllowed": true }
+    ],
+    "SettlementPlanV1": [
+      { "name": "byteStart", "type": "u64" },
+      { "name": "byteEnd", "type": "u64" },
+      { "name": "expectedWholeFileHash", "type": "bytes32" },
+      { "name": "expectedControlledRegionPreimageHash", "type": "bytes32" },
+      { "name": "replacementBytes", "type": "bytes" },
+      { "name": "expectedWholeFilePostHash", "type": "bytes32" },
+      { "name": "bomState", "type": "bomState" },
+      { "name": "lineEndingPolicy", "type": "lineEndingPolicy" },
+      { "name": "boundaryNewlineOwnership", "type": "boundaryNewlineOwnership" },
+      { "name": "writeOnceOperationId", "type": "string" }
+    ]
+  },
+  "arrays": {
+    "ReplacementDtoV1": { "elementType": "ReplacementItemV1", "order": "business-order" }
+  },
+  "enums": {
+    "ownerType": ["experiment", "experimentRun", "literature", "review", "resultItem", "finding", "outputCandidate", "outputGap", "researchOutput"],
+    "manuscriptChannel": ["primary", "literature_outline", "dedicated_notes"],
+    "entryKind": ["USER_CONFIRMED_SWITCH", "REPAIR_CONFIRMED_SWITCH"],
+    "reviewType": ["stage", "periodic", "experiment_comparison", "literature_comparison", "custom"],
+    "bomState": ["ABSENT", "UTF8_BOM"],
+    "lineEndingPolicy": ["PRESERVE_SNAPSHOT_EXACT"],
+    "boundaryNewlineOwnership": ["NONE", "LEADING", "TRAILING", "BOTH"]
+  }
+}

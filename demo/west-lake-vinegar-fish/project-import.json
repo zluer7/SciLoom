@@ -1,0 +1,1429 @@
+{
+  "schema": "sciloom.project-import",
+  "version": 1,
+  "project": {
+    "ref": "project_west_lake_vinegar_fish",
+    "title": "西湖醋鱼关键工艺参数与品质稳定性优化研究",
+    "description": "SciLoom 虚构 Demo 课题，内容均为合成演示数据，仅用于展示科研项目组织方式，不代表真实科研结论或实际烹饪建议。",
+    "background": "西湖醋鱼常被网友调侃，本项目借这一轻松题目，演示实验型科研项目如何逐步推进。欢迎来杭州游西湖品醋鱼！",
+    "objective": "围绕原料、预处理、糖醋水平和加热时间开展参数比较，逐步形成候选工艺窗口并验证稳定性。",
+    "scope": "比较原料规格、预处理时间、糖醋水平、加热时间及候选组合稳定性。",
+    "researchQuestion": "哪些原料和关键工艺参数更值得继续验证？如何兼顾腥味控制、酸甜平衡、鱼肉嫩度与成品稳定性？",
+    "status": "active",
+    "priority": "high",
+    "startDate": "2026-06-01",
+    "targetDate": "2026-11-30",
+    "tags": [
+      "西湖醋鱼",
+      "传统菜肴",
+      "工艺优化",
+      "感官评价",
+      "实验设计",
+      "品质稳定性",
+      "SciLoom Demo",
+      "合成示例"
+    ]
+  },
+  "objects": {
+    "routes": [
+      {
+        "ref": "route_literature_metrics",
+        "title": "文献调研与品质评价指标体系建立",
+        "objective": "建立评价维度、评分说明和初始变量清单。",
+        "expectedOutput": "品质评价指标与记录模板。",
+        "nodeType": "literature",
+        "status": "completed",
+        "startDate": "2026-06-01",
+        "endDate": "2026-06-20",
+        "timePrecision": "day",
+        "showInGantt": true,
+        "resultNote": "品质评价指标与记录模板初版已经形成，后续仍需通过不同实验运行验证记录口径的一致性。",
+        "tags": [
+          "文献调研",
+          "评价指标"
+        ]
+      },
+      {
+        "ref": "route_material_pretreatment",
+        "title": "原料规格与基础预处理条件筛选",
+        "objective": "确定示例规格范围和基础预处理 baseline。",
+        "expectedOutput": "原料与预处理基础方案。",
+        "nodeType": "experiment",
+        "status": "completed",
+        "startDate": "2026-06-10",
+        "endDate": "2026-07-05",
+        "timePrecision": "day",
+        "showInGantt": true,
+        "resultNote": "中等规格组被选为当前 baseline，较大规格组保留用于后续迁移验证。",
+        "tags": [
+          "原料规格",
+          "预处理"
+        ]
+      },
+      {
+        "ref": "route_deodorization_time",
+        "title": "去腥关键工艺参数研究",
+        "objective": "比较预处理时间对合成腥味评分和鱼体完整性的影响。",
+        "expectedOutput": "去腥候选时间窗口。",
+        "nodeType": "experiment",
+        "status": "completed",
+        "startDate": "2026-06-25",
+        "endDate": "2026-07-31",
+        "timePrecision": "day",
+        "showInGantt": true,
+        "resultNote": "两次运行均显示中等预处理时间的综合表现相对稳定，长时组边际改善有限。",
+        "tags": [
+          "去腥",
+          "时间梯度"
+        ]
+      },
+      {
+        "ref": "route_sweet_sour_optimization",
+        "title": "糖醋水平与调味体系优化",
+        "objective": "比较糖酸水平及调味加入顺序。",
+        "expectedOutput": "酸甜平衡候选区间。",
+        "nodeType": "experiment",
+        "status": "active",
+        "startDate": "2026-07-15",
+        "endDate": "2026-08-31",
+        "timePrecision": "day",
+        "showInGantt": true,
+        "resultNote": "第一轮已完成；第二轮三个候选组合中两个已完成主要记录，第三组记录仍在整理。",
+        "tags": [
+          "糖醋水平",
+          "调味顺序"
+        ]
+      },
+      {
+        "ref": "route_heating_texture",
+        "title": "加热时间与鱼肉质构研究",
+        "objective": "分析嫩度、鱼体完整性与加热时间之间的权衡。",
+        "expectedOutput": "加热候选窗口。",
+        "nodeType": "experiment",
+        "status": "active",
+        "startDate": "2026-08-01",
+        "endDate": "2026-09-20",
+        "timePrecision": "day",
+        "showInGantt": true,
+        "resultNote": "第一轮已观察到可能的权衡趋势，但记录校准口径不一致，尚不能冻结参数窗口。",
+        "tags": [
+          "加热时间",
+          "质构",
+          "完整性"
+        ]
+      },
+      {
+        "ref": "route_combination_repeatability",
+        "title": "多因素组合与重复性验证",
+        "description": "截至 Demo 观察时点，该路线刚启动，当前主要进行候选组合筛选、批次安排和重复性标准冻结。",
+        "objective": "组合前期候选参数并验证批次重复性。",
+        "expectedOutput": "候选组合重复结果。",
+        "nodeType": "experiment",
+        "status": "active",
+        "startDate": "2026-08-20",
+        "endDate": "2026-10-10",
+        "timePrecision": "day",
+        "showInGantt": true,
+        "tags": [
+          "多因素组合",
+          "重复性"
+        ]
+      },
+      {
+        "ref": "route_quality_stability",
+        "title": "综合品质与稳定性分析",
+        "objective": "比较鱼体规格、批次和合成盲评记录。",
+        "expectedOutput": "稳定性与适用边界。",
+        "nodeType": "analysis",
+        "status": "planned",
+        "startDate": "2026-09-15",
+        "endDate": "2026-11-10",
+        "timePrecision": "day",
+        "showInGantt": true,
+        "tags": [
+          "稳定性",
+          "规格迁移"
+        ]
+      },
+      {
+        "ref": "route_records_outputs",
+        "title": "标准化实验记录与成果整理",
+        "objective": "整理参数窗口、记录方法和阶段成果。",
+        "expectedOutput": "阶段简报与方法候选。",
+        "nodeType": "output",
+        "status": "planned",
+        "startDate": "2026-10-20",
+        "endDate": "2026-11-30",
+        "timePrecision": "day",
+        "showInGantt": true,
+        "tags": [
+          "实验记录",
+          "成果整理"
+        ]
+      }
+    ],
+    "tasks": [
+      {
+        "ref": "task_review_references",
+        "title": "整理异味形成、糖酸平衡与评价方法资料",
+        "routeRef": "route_literature_metrics",
+        "taskType": "reading",
+        "status": "done",
+        "priority": "high",
+        "scheduledDate": "2026-06-03",
+        "dueDate": "2026-06-10",
+        "timePrecision": "day",
+        "description": "整理异味形成、糖酸平衡、感官评价和记录一致性相关的合成背景资料。",
+        "resultNote": "形成原料状态、预处理时间、糖酸水平、加热时间和记录口径等初始变量分类。"
+      },
+      {
+        "ref": "task_build_metrics",
+        "title": "建立六项品质指标与统一记录说明",
+        "routeRef": "route_literature_metrics",
+        "taskType": "analysis",
+        "status": "done",
+        "priority": "high",
+        "scheduledDate": "2026-06-08",
+        "dueDate": "2026-06-20",
+        "timePrecision": "day",
+        "description": "建立腥味强度、酸甜平衡、鱼肉嫩度、鱼体完整性、汤汁附着性和综合接受度六项主要指标，并使用统一九点评分说明。“继续品尝意愿”只作为合成辅助字段。",
+        "resultNote": "六项指标定义完成，初版记录模板及术语区分说明已经形成；后续仍需在不同实验运行中验证记录口径的一致性。",
+        "tags": [
+          "评价指标",
+          "记录口径"
+        ]
+      },
+      {
+        "ref": "task_material_scheme",
+        "title": "建立鱼体规格分级与基础预处理方案",
+        "routeRef": "route_material_pretreatment",
+        "taskType": "analysis",
+        "status": "done",
+        "priority": "high",
+        "scheduledDate": "2026-06-15",
+        "dueDate": "2026-06-24",
+        "timePrecision": "day",
+        "description": "建立两个示例鱼体规格区间和两类基础预处理强度，为后续实验提供统一样品描述。",
+        "resultNote": "中等规格组被确定为当前 baseline，较大规格组保留用于后续规格迁移验证。"
+      },
+      {
+        "ref": "task_material_screening",
+        "title": "完成原料与基础预处理筛选实验",
+        "routeRef": "route_material_pretreatment",
+        "taskType": "experiment",
+        "status": "done",
+        "priority": "high",
+        "scheduledDate": "2026-06-22",
+        "dueDate": "2026-07-05",
+        "timePrecision": "day",
+        "description": "在固定后续调味与加热条件下，比较两个示例规格区间和两种基础预处理强度。",
+        "resultNote": "中等规格 baseline 的合成记录波动较小，鱼体完整性相对稳定。"
+      },
+      {
+        "ref": "task_deodorization_gradient",
+        "title": "完成去腥时间梯度设计、两轮运行与阶段分析",
+        "routeRef": "route_deodorization_time",
+        "taskType": "experiment",
+        "status": "done",
+        "priority": "high",
+        "scheduledDate": "2026-07-01",
+        "dueDate": "2026-07-31",
+        "timePrecision": "day",
+        "description": "设置 3、6、9 min 三个合成示例梯度，在其他条件固定的情况下完成两次实验运行。",
+        "acceptanceCriteria": "完成两次运行、形成一条结果条目、明确候选窗口及其局限。",
+        "resultNote": "两次运行均显示 6 min 组综合表现相对稳定；9 min 组未显示与处理时间增加成比例的额外改善。",
+        "tags": [
+          "去腥",
+          "时间梯度"
+        ]
+      },
+      {
+        "ref": "task_sweet_sour_round1",
+        "title": "完成糖醋水平第一轮单因素实验",
+        "routeRef": "route_sweet_sour_optimization",
+        "taskType": "experiment",
+        "status": "done",
+        "priority": "high",
+        "scheduledDate": "2026-07-15",
+        "dueDate": "2026-08-08",
+        "timePrecision": "day",
+        "description": "比较低、中、高三个合成糖酸水平，记录腥味强度、综合接受度和继续品尝意愿等字段。",
+        "resultNote": "第一轮合成矩阵显示中等水平综合表现较均衡，高酸组腥味字段较低但综合接受度同步下降。"
+      },
+      {
+        "ref": "task_sweet_sour_round2",
+        "title": "完成第二轮糖醋组合与调味顺序比较",
+        "routeRef": "route_sweet_sour_optimization",
+        "taskType": "experiment",
+        "status": "doing",
+        "priority": "high",
+        "scheduledDate": "2026-08-09",
+        "dueDate": "2026-08-31",
+        "timePrecision": "day",
+        "description": "第二轮设置三个候选组合，其中两个已经完成主要记录，第三组记录仍在整理；同时比较调味一次加入与分阶段加入。",
+        "resultNote": "截至 2026-08-28，只能形成阶段判断，尚不能形成最终参数结论。"
+      },
+      {
+        "ref": "task_heating_retest",
+        "title": "统一质构记录口径并完成加热时间复验",
+        "routeRef": "route_heating_texture",
+        "taskType": "experiment",
+        "status": "blocked",
+        "priority": "high",
+        "scheduledDate": "2026-08-05",
+        "dueDate": "2026-09-20",
+        "timePrecision": "day",
+        "description": "统一质构记录模板，复查关键时间点，并在第二轮运行后再形成加热参数判断。",
+        "blockedReason": "第一轮加热实验已完成，但质构记录校准口径不完全一致，现有记录只能用于识别趋势，不能直接冻结参数窗口。",
+        "acceptanceCriteria": "统一记录模板并完成第二轮运行，形成可比较的嫩度与鱼体完整性结果。"
+      },
+      {
+        "ref": "task_repeatability_prep",
+        "title": "完成候选组合筛选与重复性验证准备",
+        "routeRef": "route_combination_repeatability",
+        "taskType": "experiment",
+        "status": "doing",
+        "priority": "high",
+        "scheduledDate": "2026-08-20",
+        "dueDate": "2026-10-10",
+        "timePrecision": "day",
+        "description": "进行候选组合筛选、批次安排和重复性标准冻结。候选工艺组合重复性验证实验仍保持计划中，待准备完成后再进入实际运行。",
+        "resultNote": "截至观察时点尚未形成新的 ExperimentRun 或 ResultItem。"
+      },
+      {
+        "ref": "task_size_transfer_blind_review",
+        "title": "比较鱼体规格迁移与合成盲评稳定性",
+        "routeRef": "route_quality_stability",
+        "taskType": "analysis",
+        "status": "todo",
+        "priority": "medium",
+        "scheduledDate": "2026-09-25",
+        "dueDate": "2026-11-10",
+        "timePrecision": "day",
+        "description": "比较中等规格 baseline 与较大规格组，考察相同候选参数在不同规格下的表现，完成一轮统一说明下的合成盲评记录并检查跨批次记录一致性。",
+        "acceptanceCriteria": "形成至少一个规格迁移 ResultItem，并在阶段复盘或简报中说明评价一致性和适用边界。"
+      },
+      {
+        "ref": "task_stage_report_method",
+        "title": "完善阶段简报并整理标准化记录方法候选",
+        "routeRef": "route_records_outputs",
+        "taskType": "writing",
+        "status": "todo",
+        "priority": "high",
+        "scheduledDate": "2026-10-20",
+        "dueDate": "2026-11-30",
+        "timePrecision": "day",
+        "description": "完善已形成的前三个月进展简报，整理候选参数窗口，区分已形成事实、待验证判断与成果缺口，并形成标准化实验记录与品质评价方法候选。"
+      }
+    ],
+    "experiments": [
+      {
+        "ref": "experiment_material_pretreatment",
+        "title": "原料规格与基础预处理筛选实验",
+        "purposeAndQuestion": "不同合成鱼体规格和基础预处理方式是否会影响腥味评分波动和成品完整性？",
+        "conditionSummary": "两个示例规格区间；两种基础预处理强度；后续调味与加热条件固定。",
+        "methodSummary": "比较不同规格和基础预处理组合的合成记录波动与鱼体完整性表现。",
+        "resultSummary": "中等规格组的记录离散程度较低，鱼体完整性更稳定；较大规格组可能需要不同的处理时间。",
+        "conclusionAndNextSteps": "中等规格作为当前 baseline；规格迁移留到“比较鱼体规格迁移与合成盲评稳定性”任务。",
+        "status": "completed",
+        "rating": "good",
+        "tags": [
+          "原料规格",
+          "基础预处理"
+        ]
+      },
+      {
+        "ref": "experiment_deodorization_gradient",
+        "title": "去腥预处理时间梯度实验",
+        "purposeAndQuestion": "延长预处理时间能否持续降低合成腥味评分，同时保持鱼体完整性？",
+        "conditionSummary": "3 min、6 min、9 min 三个合成时间条件；后续调味与加热固定。",
+        "methodSummary": "完成两次独立运行，比较腥味强度、鱼体完整性和综合接受度。",
+        "resultSummary": "6 min 组在两次运行中均表现出相对稳定的综合结果；9 min 组没有出现与处理时间增加成比例的额外收益。",
+        "conclusionAndNextSteps": "将 6 min 组作为后续组合实验的候选条件，同时保留短时组作为对照，不继续扩展更长时间条件。",
+        "status": "completed",
+        "rating": "usable",
+        "tags": [
+          "去腥",
+          "时间梯度"
+        ]
+      },
+      {
+        "ref": "experiment_sweet_sour_sequence",
+        "title": "糖醋水平与调味顺序实验",
+        "purposeAndQuestion": "哪个糖酸区间更可能兼顾腥味控制、酸甜平衡和综合接受度？调味加入顺序是否影响均匀性？",
+        "conditionSummary": "第一轮为低、中、高三个合成水平；第二轮为三个候选组合，其中两个已完成主要记录，第三组仍在整理；比较调味一次加入与分阶段加入。",
+        "methodSummary": "先完成单因素比较，再对候选组合和调味顺序进行第二轮记录。",
+        "resultSummary": "第一轮支持“存在中间可接受区间”的假设；第二轮仍在进行，暂不形成最终参数结论。",
+        "conclusionAndNextSteps": "完成第三组记录和调味顺序比较后，再选择候选组合进入重复性验证。",
+        "status": "running",
+        "tags": [
+          "糖醋水平",
+          "调味顺序"
+        ]
+      },
+      {
+        "ref": "experiment_heating_texture",
+        "title": "加热时间对质构与完整性的影响实验",
+        "purposeAndQuestion": "加热时间如何同时影响合成嫩度评分和鱼体完整性？",
+        "conditionSummary": "短、中、长三个合成加热时间条件。",
+        "methodSummary": "记录嫩度、鱼体完整性及其变化趋势，并检查不同运行间的记录口径。",
+        "resultSummary": "短时组完整性较好但嫩度不足；长时组嫩度字段改善但完整性字段下降；第一轮记录校准口径不一致。",
+        "conclusionAndNextSteps": "目前只能确认存在权衡趋势，不能冻结参数窗口；由“统一质构记录口径并完成加热时间复验”任务完成后续验证。",
+        "status": "running",
+        "rating": "inconclusive",
+        "tags": [
+          "加热时间",
+          "质构",
+          "完整性"
+        ]
+      },
+      {
+        "ref": "experiment_combination_repeatability",
+        "title": "候选工艺组合重复性验证实验",
+        "purposeAndQuestion": "前期候选参数组合能否在多个合成批次中保持相近表现？",
+        "conditionSummary": "计划选择两个候选组合，每个组合至少进行两次独立运行。",
+        "methodSummary": "比较综合评分和关键单项的离散程度，为“西湖醋鱼候选工艺参数窗口与验证计划”补充可靠性证据。",
+        "conclusionAndNextSteps": "当前尚未产生实验运行或结果条目，待候选组合筛选与重复性验证准备完成后进入实际运行。",
+        "status": "planned",
+        "tags": [
+          "组合实验",
+          "重复性"
+        ]
+      }
+    ],
+    "experimentRuns": [
+      {
+        "ref": "run_material_pretreatment_1",
+        "experimentRef": "experiment_material_pretreatment",
+        "title": "原料与预处理筛选 Run 1",
+        "runLabel": "Run 1",
+        "status": "completed",
+        "conditionSummary": "两个合成鱼体规格区间、两种基础预处理强度，后续调味与加热条件固定。",
+        "methodSummary": "比较腥味、完整性和综合评分字段的波动。",
+        "resultSummary": "中等规格 baseline 的合成记录波动较小。",
+        "conclusion": "中等规格组可作为当前 baseline；较大规格组留待规格迁移验证。",
+        "summaryOther": "记录日期：2026-07-02。",
+        "rating": "good",
+        "tags": [
+          "原料规格",
+          "预处理"
+        ]
+      },
+      {
+        "ref": "run_deodorization_1",
+        "experimentRef": "experiment_deodorization_gradient",
+        "title": "去腥时间梯度 Run 1",
+        "runLabel": "Run 1",
+        "status": "completed",
+        "conditionSummary": "3、6、9 min 三组，其他条件固定。",
+        "methodSummary": "使用统一九点评分说明记录腥味、完整性和综合接受度。",
+        "resultSummary": "6 min 组综合评分领先，但仍需独立重复确认。",
+        "conclusion": "中时组值得进入第二次运行。",
+        "summaryOther": "记录日期：2026-07-15。",
+        "rating": "usable",
+        "tags": [
+          "去腥",
+          "时间梯度"
+        ]
+      },
+      {
+        "ref": "run_deodorization_2",
+        "experimentRef": "experiment_deodorization_gradient",
+        "title": "去腥时间梯度 Run 2",
+        "runLabel": "Run 2",
+        "status": "completed",
+        "conditionSummary": "3、6、9 min 三组，其他条件固定。",
+        "methodSummary": "在修订后的统一记录说明下重复时间梯度比较。",
+        "resultSummary": "中时组趋势重复出现，长时组边际改善有限。",
+        "conclusion": "6 min 组作为后续组合实验候选条件。",
+        "summaryOther": "记录日期：2026-07-27。",
+        "rating": "good",
+        "tags": [
+          "去腥",
+          "重复运行"
+        ]
+      },
+      {
+        "ref": "run_sweet_sour_1",
+        "experimentRef": "experiment_sweet_sour_sequence",
+        "title": "糖醋水平第一轮 Run",
+        "runLabel": "Run 1",
+        "status": "completed",
+        "conditionSummary": "低、中、高三个合成糖酸水平。",
+        "methodSummary": "记录腥味强度、综合接受度和继续品尝意愿等字段。",
+        "resultSummary": "中等水平综合接受度较高；高酸组腥味字段较低，但单项与综合表现分化。",
+        "conclusion": "中间区间值得进入第二轮组合实验。",
+        "summaryOther": "记录日期：2026-08-06。",
+        "rating": "good",
+        "tags": [
+          "糖醋水平",
+          "第一轮"
+        ]
+      },
+      {
+        "ref": "run_sweet_sour_2",
+        "experimentRef": "experiment_sweet_sour_sequence",
+        "title": "糖醋组合第二轮 Run",
+        "runLabel": "Run 2",
+        "status": "running",
+        "conditionSummary": "三个候选组合；比较调味一次加入与分阶段加入。",
+        "methodSummary": "已完成两个候选组合的主要记录，第三组仍在整理。",
+        "resultSummary": "分阶段加入调味可能改善酸甜均匀性，但尚无独立重复。",
+        "conclusion": "当前结果不进入已确认 Finding，待本轮闭合后再判断。",
+        "summaryOther": "开始日期：2026-08-23。",
+        "tags": [
+          "糖醋组合",
+          "进行中"
+        ]
+      },
+      {
+        "ref": "run_heating_1",
+        "experimentRef": "experiment_heating_texture",
+        "title": "加热质构 Run 1",
+        "runLabel": "Run 1",
+        "status": "completed",
+        "conditionSummary": "短、中、长三个合成加热时间条件。",
+        "methodSummary": "记录嫩度和鱼体完整性字段，并检查校准口径。",
+        "resultSummary": "观察到嫩度与完整性的权衡，但校准口径不一致。",
+        "conclusion": "结果只用于支持复验和记录方法改进，不作为有效参数结论。",
+        "summaryOther": "记录日期：2026-08-18。",
+        "rating": "inconclusive",
+        "tags": [
+          "加热时间",
+          "不确定结果"
+        ]
+      }
+    ],
+    "literature": [
+      {
+        "ref": "lit_synthetic_offodor_pretreatment",
+        "title": "[合成演示资料卡] 淡水鱼异味与预处理因素",
+        "abstract": "整理原料状态、清洗、静置和预处理时间可能影响异味感知的背景机制。该资料卡用于支持原料与去腥变量设计，不对应真实论文，也不构成真实科研证据。",
+        "readingStatus": "intensive_read",
+        "importance": "core",
+        "tags": [
+          "合成演示资料卡",
+          "异味",
+          "预处理"
+        ]
+      },
+      {
+        "ref": "lit_synthetic_sugar_acid",
+        "title": "[合成演示资料卡] 糖酸平衡与有机酸作用",
+        "abstract": "整理糖酸平衡对感官接受度的可能影响，以及酸性环境可能同时改变鱼肉状态的背景信息。该资料卡只作为糖醋实验设计背景。",
+        "readingStatus": "summarized",
+        "importance": "core",
+        "tags": [
+          "合成演示资料卡",
+          "糖酸平衡",
+          "有机酸"
+        ]
+      },
+      {
+        "ref": "lit_synthetic_heating_texture",
+        "title": "[合成演示资料卡] 加热时间、嫩度与完整性",
+        "abstract": "整理加热程度与嫩度、持水性和组织完整性之间可能存在的权衡，用于支持加热时间第二轮复验设计，不直接替代 ExperimentRun 证据。",
+        "readingStatus": "reading",
+        "importance": "important",
+        "tags": [
+          "合成演示资料卡",
+          "加热时间",
+          "质构"
+        ]
+      },
+      {
+        "ref": "lit_synthetic_evaluation_standardization",
+        "title": "[合成演示资料卡] 感官评价、记录一致性与传统工艺标准化",
+        "abstract": "整理九点评分、记录口径、跨批次比较和传统工艺标准化的基本方法与限制，只作为方法背景，不构成真实评价方法验证。",
+        "readingStatus": "intensive_read",
+        "importance": "core",
+        "tags": [
+          "合成演示资料卡",
+          "评价方法",
+          "记录一致性"
+        ]
+      }
+    ],
+    "reviews": [
+      {
+        "ref": "review_month1",
+        "title": "第1个月研究进展复盘",
+        "description": "复盘 2026 年 6 月的研究范围、合成参考资料、评价维度和原料规格初步方案。",
+        "reviewType": "periodic",
+        "periodStart": "2026-06-01",
+        "periodEnd": "2026-06-30",
+        "periodLabel": "第1个月",
+        "outlineSections": [
+          {
+            "key": "period_summary",
+            "content": "已完成研究范围、合成参考资料、评价维度和原料规格初步方案。"
+          },
+          {
+            "key": "period_completed",
+            "content": "建立六项评价指标；形成统一记录说明初稿；确定两个规格区间；启动基础预处理筛选。"
+          },
+          {
+            "key": "period_pending",
+            "content": "完成原料筛选运行；冻结去腥时间梯度；验证评分说明能否在不同运行中保持一致。"
+          },
+          {
+            "key": "major_problems",
+            "content": "月初早期记录曾出现“酸味强”与“酸甜失衡”混用；6 月 20 日修订说明后，仍需在后续实验运行中验证一致性。"
+          },
+          {
+            "key": "cause_analysis",
+            "content": "早期记录说明缺少明确边界，修订后的说明尚未经历足够的跨运行验证。"
+          },
+          {
+            "key": "next_period_plan",
+            "content": "在原料规格与基础预处理筛选实验、去腥预处理时间梯度实验中验证统一说明并按需微调；完成两项实验；启动糖醋水平实验。"
+          }
+        ],
+        "targets": [
+          {
+            "type": "route",
+            "ref": "route_literature_metrics"
+          },
+          {
+            "type": "route",
+            "ref": "route_material_pretreatment"
+          },
+          {
+            "type": "task",
+            "ref": "task_build_metrics"
+          },
+          {
+            "type": "task",
+            "ref": "task_material_screening"
+          },
+          {
+            "type": "experiment",
+            "ref": "experiment_material_pretreatment"
+          },
+          {
+            "type": "literature",
+            "ref": "lit_synthetic_offodor_pretreatment"
+          },
+          {
+            "type": "literature",
+            "ref": "lit_synthetic_evaluation_standardization"
+          }
+        ],
+        "tags": [
+          "周期复盘",
+          "第1个月"
+        ]
+      },
+      {
+        "ref": "review_deodorization_comparison",
+        "title": "去腥时间梯度实验比较复盘",
+        "description": "比较两次去腥时间梯度运行中短、中、长三组预处理时间的表现。",
+        "reviewType": "experiment_comparison",
+        "periodStart": "2026-07-15",
+        "periodEnd": "2026-07-31",
+        "periodLabel": "去腥时间梯度比较",
+        "outlineSections": [
+          {
+            "key": "comparison_summary",
+            "content": "比较去腥时间梯度 Run 1 与 Run 2 中短、中、长三组预处理时间。"
+          },
+          {
+            "key": "comparison_targets",
+            "content": "去腥预处理时间梯度实验、去腥时间梯度 Run 1、去腥时间梯度 Run 2。"
+          },
+          {
+            "key": "key_differences",
+            "content": "短时组的腥味字段较高；中时组综合评分与重复性较好；长时组额外改善有限；第一轮记录离散程度高于第二轮。"
+          },
+          {
+            "key": "main_conclusions",
+            "content": "中等预处理时间适合作为后续组合实验候选，但该结论只属于本 Demo 的合成记录。"
+          },
+          {
+            "key": "anomalies_and_problems",
+            "content": "第一轮合成记录对评价说明的应用不够一致，可能放大了字段离散程度。"
+          },
+          {
+            "key": "next_experiment_plan",
+            "content": "在糖醋水平与调味顺序实验中固定中时组；保留短时组作为对照；不继续扩展更长时间条件。"
+          }
+        ],
+        "targets": [
+          {
+            "type": "route",
+            "ref": "route_deodorization_time"
+          },
+          {
+            "type": "task",
+            "ref": "task_deodorization_gradient"
+          },
+          {
+            "type": "experiment",
+            "ref": "experiment_deodorization_gradient"
+          },
+          {
+            "type": "experimentRun",
+            "ref": "run_deodorization_1"
+          },
+          {
+            "type": "experimentRun",
+            "ref": "run_deodorization_2"
+          },
+          {
+            "type": "literature",
+            "ref": "lit_synthetic_offodor_pretreatment"
+          }
+        ],
+        "tags": [
+          "实验比较",
+          "去腥"
+        ]
+      },
+      {
+        "ref": "review_month3_midterm",
+        "title": "第3个月中期阶段复盘",
+        "description": "截至 2026-08-28 的项目阶段快照。",
+        "reviewType": "stage",
+        "periodLabel": "前三个月阶段复盘（截至 2026-08-28）",
+        "outlineSections": [
+          {
+            "key": "stage_summary",
+            "content": "前三个月已形成评价体系与记录口径初版、原料 baseline 和去腥候选窗口；糖醋实验进入第二轮，加热实验暴露记录口径问题，重复性验证刚刚启动。"
+          },
+          {
+            "key": "key_progress",
+            "content": "完成原料规格与基础预处理筛选实验、去腥预处理时间梯度实验及糖醋第一轮；形成 4 个结果条目和 4 个研究发现；建立 2 个成果候选与 3 个明确缺口；已形成前三个月研究进展简报草稿。"
+          },
+          {
+            "key": "completed_items",
+            "content": "完成文献调研与品质评价指标体系建立、原料规格与基础预处理条件筛选、去腥关键工艺参数研究三条路线；完成从资料整理到糖醋水平第一轮实验的六项任务；完成原料与预处理筛选、去腥时间梯度两轮、糖醋水平第一轮和加热质构第一轮运行；形成四个结果条目并完成主要合成参考资料整理。"
+          },
+          {
+            "key": "major_problems",
+            "content": "糖醋第二轮尚未闭合；加热质构记录口径需要统一；候选组合重复次数不足；规格迁移和合成盲评尚未进行。"
+          },
+          {
+            "key": "cause_analysis",
+            "content": "项目上半程优先完成参数筛选，重复性验证和综合评价安排在后半程；加热时间对质构与完整性的影响实验在首次运行前没有完全统一记录模板。"
+          },
+          {
+            "key": "next_plan",
+            "content": "完成第二轮糖醋组合与调味顺序比较；收口加热实验的记录口径问题；继续候选组合筛选与重复性验证准备；按计划启动鱼体规格迁移与合成盲评稳定性比较；在项目后半程完善前三个月研究进展简报。"
+          },
+          {
+            "key": "other",
+            "content": "本 Demo 的合成记录仍不支持把“再多加一点醋”作为通用优化方案。"
+          }
+        ],
+        "targets": [
+          {
+            "type": "route",
+            "ref": "route_sweet_sour_optimization"
+          },
+          {
+            "type": "route",
+            "ref": "route_heating_texture"
+          },
+          {
+            "type": "route",
+            "ref": "route_combination_repeatability"
+          },
+          {
+            "type": "task",
+            "ref": "task_sweet_sour_round2"
+          },
+          {
+            "type": "task",
+            "ref": "task_heating_retest"
+          },
+          {
+            "type": "task",
+            "ref": "task_repeatability_prep"
+          },
+          {
+            "type": "experiment",
+            "ref": "experiment_sweet_sour_sequence"
+          },
+          {
+            "type": "experiment",
+            "ref": "experiment_heating_texture"
+          },
+          {
+            "type": "literature",
+            "ref": "lit_synthetic_sugar_acid"
+          },
+          {
+            "type": "literature",
+            "ref": "lit_synthetic_heating_texture"
+          },
+          {
+            "type": "literature",
+            "ref": "lit_synthetic_evaluation_standardization"
+          }
+        ],
+        "tags": [
+          "阶段复盘",
+          "第3个月",
+          "观察快照"
+        ],
+        "periodStart": "2026-06-01",
+        "periodEnd": "2026-08-28"
+      }
+    ],
+    "resultItems": [
+      {
+        "ref": "result_material_pretreatment",
+        "title": "原料规格与基础预处理评分表",
+        "resultType": "table",
+        "source": {
+          "type": "experimentRun",
+          "ref": "run_material_pretreatment_1"
+        },
+        "status": "marked",
+        "summary": "汇总两个合成规格区间和两种预处理强度下的腥味、完整性与综合评分。",
+        "structuredSummary": {
+          "keyPhenomenon": "中等规格 baseline 的记录离散程度较低。",
+          "conditionBrief": "两个合成规格区间和两种预处理强度；后续调味与加热固定。",
+          "initialJudgement": "原料规格是后续稳定性分析的重要边界。",
+          "conversionValue": "为去腥预处理时间梯度实验和糖醋水平与调味顺序实验提供统一 baseline。",
+          "other": "所有记录均为合成示例。"
+        },
+        "tags": [
+          "原料规格",
+          "预处理",
+          "合成数据"
+        ]
+      },
+      {
+        "ref": "result_deodorization_gradient",
+        "title": "去腥时间梯度两轮评分数据",
+        "resultType": "data",
+        "source": {
+          "type": "experimentRun",
+          "ref": "run_deodorization_2"
+        },
+        "status": "marked",
+        "summary": "两次合成运行均显示，中等预处理时间的综合结果相对稳定。合成示例趋势：腥味强度（越低越好）短 6.2 / 中 4.3 / 长 4.1；综合接受度（越高越好）短 5.4 / 中 7.2 / 长 6.3。",
+        "structuredSummary": {
+          "keyPhenomenon": "时间延长带来的改善趋于平缓。",
+          "conditionBrief": "3、6、9 min，其他条件固定。",
+          "initialJudgement": "不支持“时间越长越好”。",
+          "conversionValue": "支持糖醋水平与调味顺序实验固定中时组。",
+          "other": "尚未跨规格验证；所有数值均为预设的组级合成演示分值。"
+        },
+        "tags": [
+          "去腥",
+          "时间梯度",
+          "合成评分"
+        ]
+      },
+      {
+        "ref": "result_sweet_sour_round1",
+        "title": "糖醋水平第一轮评价矩阵",
+        "resultType": "table",
+        "source": {
+          "type": "experimentRun",
+          "ref": "run_sweet_sour_1"
+        },
+        "status": "marked",
+        "summary": "合成示例趋势：腥味强度（越低越好）低 5.8 / 中 4.8 / 高 4.0；综合接受度低 5.7 / 中 7.4 / 高 4.8；继续品尝意愿低 5.9 / 中 7.2 / 高 3.6。",
+        "structuredSummary": {
+          "keyPhenomenon": "高酸示例组的腥味字段较低，但综合接受度同步下降。",
+          "conditionBrief": "低、中、高三个合成糖酸水平。",
+          "initialJudgement": "可能存在中间可接受区间。",
+          "conversionValue": "用于第二轮候选组合设计。",
+          "other": "第二轮尚未完成，不能冻结推荐区间；所有数值均为预设的组级合成演示分值。"
+        },
+        "tags": [
+          "糖醋水平",
+          "合成评分"
+        ]
+      },
+      {
+        "ref": "result_heating_consistency",
+        "title": "加热时间质构趋势与记录一致性问题",
+        "resultType": "metric",
+        "source": {
+          "type": "experimentRun",
+          "ref": "run_heating_1"
+        },
+        "status": "pending_review",
+        "summary": "第一轮记录显示嫩度与完整性可能存在权衡，但校准口径不一致。",
+        "structuredSummary": {
+          "keyPhenomenon": "短时组完整性较好，长时组嫩度字段较高。",
+          "conditionBrief": "短、中、长三个合成加热时间。",
+          "initialJudgement": "当前只能作为趋势。",
+          "conversionValue": "同时支持加热时间实验复验和记录模板改进。",
+          "other": "当前不作为参数窗口证据。"
+        },
+        "tags": [
+          "加热时间",
+          "质构",
+          "记录一致性"
+        ]
+      }
+    ],
+    "findings": [
+      {
+        "ref": "finding_separate_pretreatment_seasoning",
+        "title": "预处理与调味应作为两个参数层分别优化",
+        "summary": "当前合成记录提示，预处理时间与糖醋水平应作为两个独立参数层分别记录和验证；不能仅凭提高酸度推定总体表现改善。",
+        "status": "confirmed",
+        "findingType": "method",
+        "confidence": "medium",
+        "maturity": "medium",
+        "resultItemRefs": [
+          "result_deodorization_gradient",
+          "result_sweet_sour_round1"
+        ],
+        "structuredSummary": {
+          "supportingEvidence": "去腥时间梯度两轮评分数据与糖醋水平第一轮评价矩阵。",
+          "reliabilityJudgement": "去腥时间趋势已在两次运行中重复，糖醋水平目前只有第一轮记录。",
+          "boundaryOrMissingEvidence": "尚未跨规格验证，不构成真实去腥机制结论，仍需候选工艺组合重复性验证实验。",
+          "other": "confirmed 仅表示该 Finding 已进入当前 Demo 工作流。"
+        },
+        "tags": [
+          "预处理",
+          "调味",
+          "参数分层"
+        ]
+      },
+      {
+        "ref": "finding_middle_sweet_sour_range",
+        "title": "糖醋水平可能存在中间可接受区间",
+        "summary": "极低或极高糖酸水平都未在合成评分中表现出最佳综合结果，中间区间值得继续验证。",
+        "status": "needs_evidence",
+        "findingType": "comparison",
+        "confidence": "medium",
+        "maturity": "low",
+        "resultItemRefs": [
+          "result_sweet_sour_round1"
+        ],
+        "structuredSummary": {
+          "supportingEvidence": "糖醋水平第一轮评价矩阵。",
+          "reliabilityJudgement": "第一轮合成矩阵支持该趋势，但第二轮尚未闭合。",
+          "boundaryOrMissingEvidence": "糖醋组合第二轮 Run 尚未完成，缺独立重复和合成盲评。"
+        },
+        "tags": [
+          "糖醋水平",
+          "中间区间"
+        ]
+      },
+      {
+        "ref": "finding_heating_tradeoff",
+        "title": "加热时间可能同时影响嫩度与鱼体完整性",
+        "summary": "第一轮合成记录呈现嫩度与完整性的权衡趋势。",
+        "status": "needs_evidence",
+        "findingType": "phenomenon",
+        "confidence": "low",
+        "maturity": "low",
+        "resultItemRefs": [
+          "result_heating_consistency"
+        ],
+        "structuredSummary": {
+          "supportingEvidence": "加热时间质构趋势与记录一致性问题；背景资料卡为“加热时间、嫩度与完整性”。",
+          "reliabilityJudgement": "记录校准口径不一致，当前只能识别趋势。",
+          "boundaryOrMissingEvidence": "需要统一记录口径、完成第二轮运行，并与糖醋候选组合进行交叉验证。"
+        },
+        "tags": [
+          "加热时间",
+          "嫩度",
+          "完整性"
+        ]
+      },
+      {
+        "ref": "finding_record_consistency",
+        "title": "统一评分说明与记录口径是跨运行比较的必要前提",
+        "summary": "相同对象在不同运行中的记录只有使用一致字段和口径，才适合进入后续比较、Finding 和成果候选。",
+        "status": "confirmed",
+        "findingType": "method",
+        "confidence": "medium",
+        "maturity": "medium",
+        "resultItemRefs": [
+          "result_material_pretreatment",
+          "result_heating_consistency"
+        ],
+        "structuredSummary": {
+          "supportingEvidence": "原料规格与基础预处理评分表、加热时间质构趋势与记录一致性问题；背景为第1个月研究进展复盘和“感官评价、记录一致性与传统工艺标准化”资料卡。",
+          "reliabilityJudgement": "当前证据能够说明本 Demo 内部记录一致性的必要性，但不形成真实方法学验证。",
+          "boundaryOrMissingEvidence": "仍需“比较鱼体规格迁移与合成盲评稳定性”任务提供合成盲评与跨批次记录验证。",
+          "other": "confirmed 仅表示该 Finding 已进入当前 Demo 工作流。"
+        },
+        "tags": [
+          "记录口径",
+          "跨运行比较"
+        ]
+      }
+    ],
+    "outputCandidates": [
+      {
+        "ref": "candidate_parameter_window",
+        "title": "西湖醋鱼候选工艺参数窗口与验证计划",
+        "candidateType": "report",
+        "description": "汇总候选参数、证据等级和后续验证任务的成果候选，不是已经形成的最终报告。",
+        "status": "needs_gap_resolution",
+        "maturity": "medium",
+        "priority": "high",
+        "findingRefs": [
+          "finding_separate_pretreatment_seasoning",
+          "finding_middle_sweet_sour_range",
+          "finding_heating_tradeoff"
+        ],
+        "resultItemRefs": [
+          "result_deodorization_gradient",
+          "result_sweet_sour_round1",
+          "result_heating_consistency"
+        ],
+        "structuredSummary": {
+          "outputType": "候选工艺参数窗口与验证计划。",
+          "innovationContribution": "将候选预处理时间、糖醋中间区间假设和加热权衡按证据等级组织，并明确后续验证任务。",
+          "evidenceSummary": "去腥时间梯度两轮评分数据、糖醋水平第一轮评价矩阵、加热时间质构趋势与记录一致性问题，以及对应的三个研究发现。",
+          "risksAndGaps": "重复性验证尚未完成，规格迁移尚未完成，加热记录口径仍需收口。",
+          "other": "该对象仍需解决成果缺口，不代表真实工艺指南。"
+        },
+        "tags": [
+          "参数窗口",
+          "验证计划"
+        ]
+      },
+      {
+        "ref": "candidate_recording_method",
+        "title": "标准化实验记录与品质评价方法候选",
+        "candidateType": "method",
+        "description": "整理本 Demo 的样品描述、评分说明、运行记录和跨批次比较方式。",
+        "status": "pending_evaluation",
+        "maturity": "low",
+        "priority": "medium",
+        "findingRefs": [
+          "finding_record_consistency"
+        ],
+        "resultItemRefs": [
+          "result_material_pretreatment",
+          "result_heating_consistency"
+        ],
+        "structuredSummary": {
+          "outputType": "标准化实验记录与品质评价方法候选。",
+          "innovationContribution": "把样品描述、评分说明、运行记录和跨批次比较组织成可追踪的方法候选。",
+          "evidenceSummary": "原料规格与基础预处理评分表、加热时间质构趋势与记录一致性问题、记录口径相关研究发现，以及“感官评价、记录一致性与传统工艺标准化”资料卡。",
+          "risksAndGaps": "合成盲评尚未执行，评价一致性仍需后半程验证。",
+          "other": "不构成真实食品感官评价标准。"
+        },
+        "tags": [
+          "实验记录",
+          "评价方法"
+        ]
+      }
+    ],
+    "outputGaps": [
+      {
+        "ref": "gap_repeatability",
+        "title": "候选组合重复实验数量不足",
+        "gapType": "experiment",
+        "outputCandidateRef": "candidate_parameter_window",
+        "description": "当前候选参数主要来自单因素及前序运行，候选组合尚未完成独立重复，不能说明批次稳定性。",
+        "status": "task_created",
+        "priority": "high",
+        "structuredSummary": {
+          "gapType": "候选组合独立重复不足。",
+          "affectedObject": "西湖醋鱼候选工艺参数窗口与验证计划。",
+          "strengtheningPlan": "完成候选组合筛选与验证准备，随后对两个候选组合分别执行独立重复并形成可比较的结果条目。",
+          "completionCriteria": "两个候选组合分别完成至少两次独立、记录完整的运行。"
+        }
+      },
+      {
+        "ref": "gap_size_transfer",
+        "title": "不同鱼体规格下的参数迁移验证不足",
+        "gapType": "validation",
+        "outputCandidateRef": "candidate_parameter_window",
+        "description": "当前结论主要来自中等规格 baseline，不能说明其他规格是否需要调整预处理或加热窗口。",
+        "status": "pending",
+        "priority": "high",
+        "structuredSummary": {
+          "gapType": "鱼体规格迁移验证不足。",
+          "affectedObject": "西湖醋鱼候选工艺参数窗口与验证计划。",
+          "strengtheningPlan": "通过鱼体规格迁移与合成盲评稳定性比较，记录相同候选参数在中等规格 baseline 与较大规格组中的表现。",
+          "completionCriteria": "形成至少一个规格迁移 ResultItem，并明确适用边界。"
+        }
+      },
+      {
+        "ref": "gap_blind_review_consistency",
+        "title": "合成盲评与记录一致性证据不足",
+        "gapType": "analysis",
+        "outputCandidateRef": "candidate_recording_method",
+        "description": "当前评价记录主要用于 Demo 内部比较，尚未完成统一说明下的合成盲评一致性分析。",
+        "status": "pending",
+        "priority": "medium",
+        "structuredSummary": {
+          "gapType": "合成盲评与记录一致性信息不足。",
+          "affectedObject": "标准化实验记录与品质评价方法候选。",
+          "strengtheningPlan": "通过鱼体规格迁移与合成盲评稳定性比较以及阶段简报整理，形成统一口径的合成盲评记录，并在复盘或阶段简报中说明一致性与局限。",
+          "completionCriteria": "完成一轮统一口径的合成盲评记录，并形成对一致性和局限的明确说明。"
+        }
+      }
+    ],
+    "researchOutputs": [
+      {
+        "ref": "output_month3_progress_brief",
+        "outputName": "西湖醋鱼前三个月研究进展简报（Demo V0.1）",
+        "outputType": "report",
+        "status": "draft",
+        "description": "截至 2026-08-28 已经形成的阶段性产物，用于总结当前事实、限制和下一步；它不同于仍需补证的两个成果候选。",
+        "structuredSummary": {
+          "outputType": "前三个月研究进展简报。",
+          "coreContribution": "汇总已完成路线和实验、四个结果条目、四个研究发现、两个成果候选、三个成果缺口及项目后半程计划。",
+          "sourceChainSummary": "背景资料 → 研究路线与任务 → 实验与实验运行 → 阶段复盘 → ResultItem → Finding → 成果候选与成果缺口。",
+          "archiveUsage": "用于项目中期汇报、后续实验排期，以及当前证据边界和成果缺口留档。",
+          "other": "不构成真实科研报告或工艺指南；“西湖醋鱼候选工艺参数窗口与验证计划”尚未转化为本阶段输出。"
+        }
+      }
+    ]
+  },
+  "relations": [
+    {
+      "source": {
+        "type": "task",
+        "ref": "task_material_screening"
+      },
+      "target": {
+        "type": "experiment",
+        "ref": "experiment_material_pretreatment"
+      },
+      "relationType": "supports",
+      "description": "该任务实施原料规格与基础预处理筛选实验。"
+    },
+    {
+      "source": {
+        "type": "task",
+        "ref": "task_deodorization_gradient"
+      },
+      "target": {
+        "type": "experiment",
+        "ref": "experiment_deodorization_gradient"
+      },
+      "relationType": "supports",
+      "description": "该任务完成去腥时间梯度设计、运行与阶段分析。"
+    },
+    {
+      "source": {
+        "type": "task",
+        "ref": "task_sweet_sour_round1"
+      },
+      "target": {
+        "type": "experiment",
+        "ref": "experiment_sweet_sour_sequence"
+      },
+      "relationType": "supports",
+      "description": "该任务完成糖醋水平第一轮实验。"
+    },
+    {
+      "source": {
+        "type": "task",
+        "ref": "task_sweet_sour_round2"
+      },
+      "target": {
+        "type": "experiment",
+        "ref": "experiment_sweet_sour_sequence"
+      },
+      "relationType": "supports",
+      "description": "该任务推进第二轮候选组合与调味顺序比较。"
+    },
+    {
+      "source": {
+        "type": "task",
+        "ref": "task_heating_retest"
+      },
+      "target": {
+        "type": "experiment",
+        "ref": "experiment_heating_texture"
+      },
+      "relationType": "supports",
+      "description": "该任务负责统一记录口径并完成加热时间复验。"
+    },
+    {
+      "source": {
+        "type": "task",
+        "ref": "task_repeatability_prep"
+      },
+      "target": {
+        "type": "experiment",
+        "ref": "experiment_combination_repeatability"
+      },
+      "relationType": "supports",
+      "description": "该任务完成候选组合筛选与重复性验证准备。"
+    },
+    {
+      "source": {
+        "type": "literature",
+        "ref": "lit_synthetic_offodor_pretreatment"
+      },
+      "target": {
+        "type": "task",
+        "ref": "task_review_references"
+      },
+      "relationType": "supports"
+    },
+    {
+      "source": {
+        "type": "literature",
+        "ref": "lit_synthetic_offodor_pretreatment"
+      },
+      "target": {
+        "type": "task",
+        "ref": "task_material_scheme"
+      },
+      "relationType": "supports"
+    },
+    {
+      "source": {
+        "type": "literature",
+        "ref": "lit_synthetic_offodor_pretreatment"
+      },
+      "target": {
+        "type": "task",
+        "ref": "task_deodorization_gradient"
+      },
+      "relationType": "supports"
+    },
+    {
+      "source": {
+        "type": "literature",
+        "ref": "lit_synthetic_offodor_pretreatment"
+      },
+      "target": {
+        "type": "experiment",
+        "ref": "experiment_material_pretreatment"
+      },
+      "relationType": "supports"
+    },
+    {
+      "source": {
+        "type": "literature",
+        "ref": "lit_synthetic_offodor_pretreatment"
+      },
+      "target": {
+        "type": "experiment",
+        "ref": "experiment_deodorization_gradient"
+      },
+      "relationType": "supports"
+    },
+    {
+      "source": {
+        "type": "literature",
+        "ref": "lit_synthetic_sugar_acid"
+      },
+      "target": {
+        "type": "task",
+        "ref": "task_sweet_sour_round1"
+      },
+      "relationType": "supports"
+    },
+    {
+      "source": {
+        "type": "literature",
+        "ref": "lit_synthetic_sugar_acid"
+      },
+      "target": {
+        "type": "task",
+        "ref": "task_sweet_sour_round2"
+      },
+      "relationType": "supports"
+    },
+    {
+      "source": {
+        "type": "literature",
+        "ref": "lit_synthetic_sugar_acid"
+      },
+      "target": {
+        "type": "experiment",
+        "ref": "experiment_sweet_sour_sequence"
+      },
+      "relationType": "supports"
+    },
+    {
+      "source": {
+        "type": "literature",
+        "ref": "lit_synthetic_heating_texture"
+      },
+      "target": {
+        "type": "task",
+        "ref": "task_heating_retest"
+      },
+      "relationType": "supports"
+    },
+    {
+      "source": {
+        "type": "literature",
+        "ref": "lit_synthetic_heating_texture"
+      },
+      "target": {
+        "type": "experiment",
+        "ref": "experiment_heating_texture"
+      },
+      "relationType": "supports"
+    },
+    {
+      "source": {
+        "type": "literature",
+        "ref": "lit_synthetic_evaluation_standardization"
+      },
+      "target": {
+        "type": "task",
+        "ref": "task_build_metrics"
+      },
+      "relationType": "supports"
+    },
+    {
+      "source": {
+        "type": "literature",
+        "ref": "lit_synthetic_evaluation_standardization"
+      },
+      "target": {
+        "type": "task",
+        "ref": "task_repeatability_prep"
+      },
+      "relationType": "supports"
+    },
+    {
+      "source": {
+        "type": "literature",
+        "ref": "lit_synthetic_evaluation_standardization"
+      },
+      "target": {
+        "type": "task",
+        "ref": "task_size_transfer_blind_review"
+      },
+      "relationType": "supports"
+    },
+    {
+      "source": {
+        "type": "literature",
+        "ref": "lit_synthetic_evaluation_standardization"
+      },
+      "target": {
+        "type": "task",
+        "ref": "task_stage_report_method"
+      },
+      "relationType": "supports"
+    },
+    {
+      "source": {
+        "type": "resultItem",
+        "ref": "result_deodorization_gradient"
+      },
+      "target": {
+        "type": "experimentRun",
+        "ref": "run_deodorization_1"
+      },
+      "relationType": "derived_from",
+      "description": "补充来源：第一轮去腥时间梯度运行。"
+    },
+    {
+      "source": {
+        "type": "outputGap",
+        "ref": "gap_repeatability"
+      },
+      "target": {
+        "type": "task",
+        "ref": "task_repeatability_prep"
+      },
+      "relationType": "needs_followup_task",
+      "description": "该缺口需要由候选组合筛选与重复性验证准备任务补强。"
+    },
+    {
+      "source": {
+        "type": "outputGap",
+        "ref": "gap_size_transfer"
+      },
+      "target": {
+        "type": "task",
+        "ref": "task_size_transfer_blind_review"
+      },
+      "relationType": "needs_followup_task",
+      "description": "该缺口需要由鱼体规格迁移与合成盲评稳定性比较任务补强。"
+    },
+    {
+      "source": {
+        "type": "outputGap",
+        "ref": "gap_blind_review_consistency"
+      },
+      "target": {
+        "type": "task",
+        "ref": "task_size_transfer_blind_review"
+      },
+      "relationType": "needs_followup_task",
+      "description": "该缺口需要由鱼体规格迁移与合成盲评稳定性比较任务补强。"
+    },
+    {
+      "source": {
+        "type": "outputGap",
+        "ref": "gap_blind_review_consistency"
+      },
+      "target": {
+        "type": "task",
+        "ref": "task_stage_report_method"
+      },
+      "relationType": "needs_followup_task",
+      "description": "该缺口需要由阶段简报与标准化记录方法整理任务补强。"
+    },
+    {
+      "source": {
+        "type": "finding",
+        "ref": "finding_heating_tradeoff"
+      },
+      "target": {
+        "type": "literature",
+        "ref": "lit_synthetic_heating_texture"
+      },
+      "relationType": "references",
+      "description": "该研究发现引用加热时间、嫩度与完整性合成资料卡作为背景。"
+    },
+    {
+      "source": {
+        "type": "finding",
+        "ref": "finding_record_consistency"
+      },
+      "target": {
+        "type": "review",
+        "ref": "review_month1"
+      },
+      "relationType": "references",
+      "description": "该研究发现引用第1个月复盘中记录口径混用及修订情况。"
+    },
+    {
+      "source": {
+        "type": "finding",
+        "ref": "finding_record_consistency"
+      },
+      "target": {
+        "type": "literature",
+        "ref": "lit_synthetic_evaluation_standardization"
+      },
+      "relationType": "references",
+      "description": "该研究发现引用感官评价、记录一致性与传统工艺标准化合成资料卡作为背景。"
+    },
+    {
+      "source": {
+        "type": "outputCandidate",
+        "ref": "candidate_recording_method"
+      },
+      "target": {
+        "type": "literature",
+        "ref": "lit_synthetic_evaluation_standardization"
+      },
+      "relationType": "references",
+      "description": "该方法型成果候选引用记录一致性与传统工艺标准化合成资料卡。"
+    },
+    {
+      "source": {
+        "type": "outputGap",
+        "ref": "gap_repeatability"
+      },
+      "target": {
+        "type": "experiment",
+        "ref": "experiment_combination_repeatability"
+      },
+      "relationType": "requires",
+      "description": "该缺口需要通过候选工艺组合重复性验证实验补充证据。"
+    }
+  ]
+}

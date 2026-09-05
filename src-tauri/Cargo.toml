@@ -1,0 +1,55 @@
+[package]
+name = "labpod"
+version = "0.1.0"
+description = "SciLoom local desktop application"
+authors = ["SciLoom"]
+edition = "2021"
+default-run = "labpod"
+
+[features]
+default = []
+maintenance-tools = []
+
+[[bin]]
+name = "labpod"
+path = "src/main.rs"
+
+[[bin]]
+name = "lp11_run_file_ref_cleanup"
+path = "src/bin/lp11_run_file_ref_cleanup.rs"
+required-features = ["maintenance-tools"]
+
+[[bin]]
+name = "lp12_3_b_ip1_foundation_probe"
+path = "src/bin/lp12_3_b_ip1_foundation_probe.rs"
+required-features = ["maintenance-tools"]
+
+[lib]
+name = "labpod_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2.7.1"
+tauri-plugin-opener = "2"
+tokio = { version = "1", features = ["sync", "time"] }
+uuid = { version = "1", features = ["v4"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "=0.61.3", features = ["Win32_Foundation", "Win32_Security_Credentials", "Win32_System_LibraryLoader", "Win32_UI_HiDpi", "Win32_UI_WindowsAndMessaging"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = { version = "=3.7.0", default-features = false }
+
+[dev-dependencies]
+rusqlite = { version = "0.32", features = ["hooks", "trace"] }
+tauri = { version = "2", features = ["test"] }

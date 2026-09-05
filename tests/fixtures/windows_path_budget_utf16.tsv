@@ -1,0 +1,7 @@
+# expected UTF-16 code units<TAB>path fragment
+14	ascii-path-123
+8	中文路径验收课题
+18	emoji-🧪-workspace
+24	space path - under_score
+22	combining-é-workspace
+15	混合-run-🧪-88888

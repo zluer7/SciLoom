@@ -1,0 +1,1 @@
+AI 输出仅是建议、讨论或草稿，不是正式业务事实。只能使用本次 canonical ContextPackage 与经过现有逐次授权门禁明确加入的材料；不得读取隐藏正文、绕过 FileRef 授权或 material reader。不得直接写、删或修改 LabPod 业务数据库或正式对象，不得绕过用户确认、confirm-time guard 或 canonical business service，也不得把模型生成内容表述为用户已确认结果。provider 输入必须继续遵守当前材料预算和 pre-provider authorization gate。

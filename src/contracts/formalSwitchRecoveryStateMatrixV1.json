@@ -1,0 +1,58 @@
+{
+  "matrixId": "FormalSwitchRecoveryStateMatrixV1",
+  "matrixVersion": 1,
+  "initial": {
+    "phase": "prepared",
+    "settlementOutcome": "UNKNOWN",
+    "dbOutcome": "NOT_APPLIED",
+    "activationOutcome": "PENDING",
+    "terminalCode": null
+  },
+  "terminalCodes": [
+    "CONTAINED_CONTINUATION_BLOCKED",
+    "BLOCKED_MANUAL_ADJUDICATION_REQUIRED",
+    "RESOLVED",
+    "CANCELLED_SAFE"
+  ],
+  "slotReleasingTerminalCodes": ["RESOLVED", "CANCELLED_SAFE"],
+  "phases": [
+    { "name": "prepared", "terminal": false, "occupiesUnresolvedSlot": true },
+    { "name": "settlement_started", "terminal": false, "occupiesUnresolvedSlot": true },
+    { "name": "settlement_complete", "terminal": false, "occupiesUnresolvedSlot": true },
+    { "name": "db_pending", "terminal": false, "occupiesUnresolvedSlot": true },
+    { "name": "db_complete", "terminal": false, "occupiesUnresolvedSlot": true },
+    { "name": "activation_pending", "terminal": false, "occupiesUnresolvedSlot": true },
+    { "name": "contained", "terminal": true, "occupiesUnresolvedSlot": true },
+    { "name": "blocked", "terminal": true, "occupiesUnresolvedSlot": true },
+    { "name": "resolved", "terminal": true, "occupiesUnresolvedSlot": false },
+    { "name": "cancelled_safe", "terminal": true, "occupiesUnresolvedSlot": false }
+  ],
+  "settlementOutcomes": ["NOT_REQUIRED", "APPLIED", "ALREADY_APPLIED", "UNKNOWN"],
+  "dbOutcomes": ["NOT_APPLIED", "COMMITTED", "ALREADY_COMMITTED", "UNKNOWN"],
+  "activationOutcomes": ["PENDING", "APPLIED", "ALREADY_ACTIVE", "UNKNOWN"],
+  "outcomeMutationPhases": {
+    "settlementOutcome": ["prepared", "settlement_started"],
+    "dbOutcome": ["db_pending"],
+    "activationOutcome": ["activation_pending"]
+  },
+  "transitions": [
+    { "from": "prepared", "to": "settlement_started", "settlement": ["UNKNOWN"], "db": ["NOT_APPLIED"], "activation": ["PENDING"], "terminalCode": null, "effectPermission": "NONE" },
+    { "from": "prepared", "to": "settlement_complete", "settlement": ["NOT_REQUIRED"], "db": ["NOT_APPLIED"], "activation": ["PENDING"], "terminalCode": null, "effectPermission": "NO_SETTLEMENT_EFFECT" },
+    { "from": "settlement_started", "to": "settlement_complete", "settlement": ["NOT_REQUIRED", "APPLIED", "ALREADY_APPLIED"], "db": ["NOT_APPLIED"], "activation": ["PENDING"], "terminalCode": null, "effectPermission": "SETTLEMENT_RESULT_ONLY" },
+    { "from": "settlement_complete", "to": "db_pending", "settlement": ["NOT_REQUIRED", "APPLIED", "ALREADY_APPLIED"], "db": ["NOT_APPLIED"], "activation": ["PENDING"], "terminalCode": null, "effectPermission": "NONE" },
+    { "from": "db_pending", "to": "db_complete", "settlement": ["NOT_REQUIRED", "APPLIED", "ALREADY_APPLIED"], "db": ["COMMITTED", "ALREADY_COMMITTED"], "activation": ["PENDING"], "terminalCode": null, "effectPermission": "DB_RESULT_ONLY" },
+    { "from": "db_complete", "to": "activation_pending", "settlement": ["NOT_REQUIRED", "APPLIED", "ALREADY_APPLIED"], "db": ["COMMITTED", "ALREADY_COMMITTED"], "activation": ["PENDING"], "terminalCode": null, "effectPermission": "NONE" },
+    { "from": "activation_pending", "to": "resolved", "settlement": ["NOT_REQUIRED", "APPLIED", "ALREADY_APPLIED"], "db": ["COMMITTED", "ALREADY_COMMITTED"], "activation": ["APPLIED", "ALREADY_ACTIVE"], "terminalCode": "RESOLVED", "effectPermission": "ACTIVATION_RESULT_ONLY" },
+    { "from": "prepared", "to": "cancelled_safe", "settlement": ["UNKNOWN"], "db": ["NOT_APPLIED"], "activation": ["PENDING"], "terminalCode": "CANCELLED_SAFE", "effectPermission": "NONE" },
+    { "from": "prepared", "to": "contained", "settlement": ["UNKNOWN"], "db": ["NOT_APPLIED"], "activation": ["PENDING"], "terminalCode": "CONTAINED_CONTINUATION_BLOCKED", "effectPermission": "NONE" },
+    { "from": "settlement_started", "to": "contained", "settlement": ["UNKNOWN"], "db": ["NOT_APPLIED"], "activation": ["PENDING"], "terminalCode": "CONTAINED_CONTINUATION_BLOCKED", "effectPermission": "NONE" },
+    { "from": "db_pending", "to": "contained", "settlement": ["NOT_REQUIRED", "APPLIED", "ALREADY_APPLIED"], "db": ["UNKNOWN"], "activation": ["PENDING"], "terminalCode": "CONTAINED_CONTINUATION_BLOCKED", "effectPermission": "NONE" },
+    { "from": "activation_pending", "to": "contained", "settlement": ["NOT_REQUIRED", "APPLIED", "ALREADY_APPLIED"], "db": ["COMMITTED", "ALREADY_COMMITTED"], "activation": ["UNKNOWN"], "terminalCode": "CONTAINED_CONTINUATION_BLOCKED", "effectPermission": "NONE" },
+    { "from": "prepared", "to": "blocked", "settlement": ["UNKNOWN"], "db": ["NOT_APPLIED"], "activation": ["PENDING"], "terminalCode": "BLOCKED_MANUAL_ADJUDICATION_REQUIRED", "effectPermission": "NONE" },
+    { "from": "settlement_started", "to": "blocked", "settlement": ["UNKNOWN"], "db": ["NOT_APPLIED"], "activation": ["PENDING"], "terminalCode": "BLOCKED_MANUAL_ADJUDICATION_REQUIRED", "effectPermission": "NONE" },
+    { "from": "settlement_complete", "to": "blocked", "settlement": ["NOT_REQUIRED", "APPLIED", "ALREADY_APPLIED"], "db": ["NOT_APPLIED"], "activation": ["PENDING"], "terminalCode": "BLOCKED_MANUAL_ADJUDICATION_REQUIRED", "effectPermission": "NONE" },
+    { "from": "db_pending", "to": "blocked", "settlement": ["NOT_REQUIRED", "APPLIED", "ALREADY_APPLIED"], "db": ["NOT_APPLIED", "UNKNOWN"], "activation": ["PENDING"], "terminalCode": "BLOCKED_MANUAL_ADJUDICATION_REQUIRED", "effectPermission": "NONE" },
+    { "from": "db_complete", "to": "blocked", "settlement": ["NOT_REQUIRED", "APPLIED", "ALREADY_APPLIED"], "db": ["COMMITTED", "ALREADY_COMMITTED"], "activation": ["PENDING"], "terminalCode": "BLOCKED_MANUAL_ADJUDICATION_REQUIRED", "effectPermission": "NONE" },
+    { "from": "activation_pending", "to": "blocked", "settlement": ["NOT_REQUIRED", "APPLIED", "ALREADY_APPLIED"], "db": ["COMMITTED", "ALREADY_COMMITTED"], "activation": ["PENDING", "UNKNOWN"], "terminalCode": "BLOCKED_MANUAL_ADJUDICATION_REQUIRED", "effectPermission": "NONE" }
+  ]
+}

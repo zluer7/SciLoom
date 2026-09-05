@@ -1,0 +1,85 @@
+# dependencies and package caches
+node_modules/
+.npm-cache/
+
+# frontend / Rust / Tauri build output
+dist/
+build/
+target/
+src-tauri/target/
+coverage/
+
+# task/runtime cache and temporary state
+.tmp/
+tmp/
+.cache/
+cache/
+test-results/
+acceptance-artifacts/
+playwright-report/
+
+# logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# local SQLite, DB and backups
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.bak
+*.backup
+
+# local environment and secret-bearing variants
+.env
+.env.*
+!.env.example
+!.env.template
+credentials/
+secrets/
+private-keys/
+*.local.credentials.json
+*.local.secrets.json
+*.local.key
+*.local.pem
+*.local.p12
+*.local.pfx
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+
+# local WebView2 / browser profiles
+.webview2/
+webview2-profile/
+**/EBWebView/
+
+# local release and installer output
+release-local/
+installers/
+*.exe
+*.msi
+*.msix
+*.dmg
+*.deb
+*.rpm
+*.app
+
+# IDE / OS metadata
+.vscode/
+.idea/
+.vs/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# local research/business data roots only
+/data/
+/datasets/
+/results/
+/outputs/

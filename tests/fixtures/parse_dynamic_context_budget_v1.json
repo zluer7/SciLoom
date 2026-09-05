@@ -1,0 +1,64 @@
+{
+  "researchContext": "## LabPod Research Context\n项目: 动态预算🔬",
+  "conversationHistory": [
+    {
+      "role": "user",
+      "content": "[CURRENT PARSE DELTA]\n请创建一个任务，不要裁剪这段用户输入。"
+    },
+    {
+      "role": "assistant",
+      "content": "建议创建任务“校准仪器”，并关联当前课题。"
+    }
+  ],
+  "requestableRefs": [
+    {
+      "refKind": "AI_RESEARCH_OBJECT",
+      "refId": "task-alpha",
+      "projectId": "project-1",
+      "label": "任务 α",
+      "allowedContributionKinds": ["IDENTITY_METADATA"]
+    },
+    {
+      "refKind": "FILE_REF",
+      "refId": "file-evidence",
+      "projectId": "project-1",
+      "label": "evidence.md",
+      "allowedContributionKinds": ["IDENTITY_METADATA", "BODY_CONTENT"]
+    }
+  ],
+  "frontendOnlyEntityTypes": ["task", "fileRef"],
+  "alreadySuppliedRefs": [
+    {
+      "refKind": "AI_RESEARCH_OBJECT",
+      "refId": "route-1",
+      "projectId": "project-1",
+      "contributionKind": "IDENTITY_METADATA"
+    }
+  ],
+  "quickAnalysisContextCapability": {
+    "runId": "run-1",
+    "wholeRunBudgetLimit": 1,
+    "remaining": 0,
+    "state": "CONTEXT_EXHAUSTED"
+  },
+  "contextRequestFollowupState": {
+    "scope": "SAME_PARSE_ATTEMPT_AUTOMATIC_FOLLOWUP",
+    "limit": 1,
+    "remaining": 0,
+    "state": "CONTEXT_EXHAUSTED"
+  },
+  "runScopedDynamicSegments": [
+    "The CURRENT PARSE DELTA starts after sequence 0 and ends at sequence 2.",
+    "## Provider Owner Entity Refs\n[{\"ownerType\":\"project\",\"ownerId\":\"project-1\"}]"
+  ],
+  "expectedComponents": {
+    "researchContextCharacters": 36,
+    "conversationContinuityCharacters": 79,
+    "requestableRefsCharacters": 300,
+    "alreadySuppliedRefsCharacters": 115,
+    "quickAnalysisCapabilityCharacters": 83,
+    "contextRequestFollowupCharacters": 101,
+    "runScopedMetadataCharacters": 148
+  },
+  "expectedCharacters": 862
+}
