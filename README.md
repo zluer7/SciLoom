@@ -2,7 +2,7 @@
 
 SciLoom 是面向科研人员的 AI 辅助桌面科研管理工作台，以本地科研工作流为中心。
 
-当前为 **V1 测试版**，提供 Windows x64 与 macOS Apple Silicon 测试安装包。
+**V1 正式版**（程序版本 0.1.0）已公开发布，提供 Windows x64 与 macOS Apple Silicon 安装包。
 
 ## 主要能力
 
@@ -12,13 +12,13 @@ SciLoom 是面向科研人员的 AI 辅助桌面科研管理工作台，以本�
 
 ## 获取与使用
 
-- Windows x64：[下载测试安装包](https://github.com/zluer7/SciLoom/releases/download/v0.1.0-beta.1/SciLoom_0.1.0_x64-setup.exe)。
-- macOS Apple Silicon：[下载测试 DMG](https://github.com/zluer7/SciLoom/releases/download/v0.1.0-beta.1/SciLoom_0.1.0_aarch64.dmg)。
-- 完整性校验：[SHA256SUMS.txt](https://github.com/zluer7/SciLoom/releases/download/v0.1.0-beta.1/SHA256SUMS.txt)。
+- Windows x64：[下载安装包](https://github.com/zluer7/SciLoom/releases/download/v0.1.0/SciLoom_0.1.0_x64-setup.exe)。
+- macOS Apple Silicon：[下载 DMG](https://github.com/zluer7/SciLoom/releases/download/v0.1.0/SciLoom_0.1.0_aarch64.dmg)。
+- 完整性校验：[SHA256SUMS.txt](https://github.com/zluer7/SciLoom/releases/download/v0.1.0/SHA256SUMS.txt)。
 - 官网及下载信息权威入口：[sciloom.com](https://sciloom.com)。
-- 使用说明：[快速开始](docs/QUICK_START.md)。
+- 使用说明：[快速开始](https://github.com/zluer7/SciLoom/releases/download/v0.1.0/QUICK_START.md)。
 
-macOS 包为 Apple Silicon 测试版，尚未完成 Apple Developer ID 签名及 Apple 公证（notarization）；真实下载后的 Gatekeeper 验证尚未完成。
+macOS 包适用于 Apple Silicon，尚未完成 Apple Developer ID 签名及 Apple 公证（notarization）；下载后的 Gatekeeper 验证尚未完成。
 
 ## 开源许可与署名
 
