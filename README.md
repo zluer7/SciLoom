@@ -18,7 +18,7 @@ SciLoom 是面向科研人员的 AI 辅助桌面科研管理工作台，以本�
 - 官网及下载信息权威入口：[sciloom.com](https://sciloom.com)。
 - 使用说明：[快速开始](https://github.com/zluer7/SciLoom/releases/download/v0.1.0/QUICK_START.md)。
 
-macOS 包适用于 Apple Silicon，尚未完成 Apple Developer ID 签名及 Apple 公证（notarization）；下载后的 Gatekeeper 验证尚未完成。
+macOS Apple Silicon 安装包已完成 Apple Developer ID 签名及 Apple 公证（notarization）。
 
 ## 开源许可与署名
 
