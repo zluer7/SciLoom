@@ -161,11 +161,11 @@ test('Task single-clear preserves an unavailable Route on both canonical owners'
 });
 test('actual detail refresh preserves the form while editing the same owner or creating',()=>{
   const source=readFileSync(resolve(directory,'../pages/Experiments/ExperimentsPage.tsx'),'utf8');
-  const code=source.match(/setExperimentForm\(\(current\) =>\s+experimentPanelMode[\s\S]*?\n\s+\);/)[0];
-  const apply=Function('setExperimentForm','experimentPanelMode','editingExperimentId','context','experimentToForm','researchTraceDisplayChecked',code);
+  const code=source.match(/setExperimentForm\(\(current\) => experimentPanelModeRef\.current[\s\S]*?researchTraceDisplayChecked \}\);/)[0];
+  const apply=Function('setExperimentForm','experimentPanelModeRef','context','experimentToForm','researchTraceDisplayChecked',code);
   for(const mode of ['edit','create']){
     let form={routeId:'edited',taskId:'kept',title:'Unsaved'};const original=structuredClone(form);
-    apply(change=>{form=change(form)},mode,'e',{experiment:{id:'e'}},()=>({routeId:'',taskId:''}),false);
+    apply(change=>{form=change(form)},{current:mode},{experiment:{id:'e'}},()=>({routeId:'',taskId:''}),false);
     assert.deepEqual(form,original);
   }
 });

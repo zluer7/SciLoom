@@ -42,6 +42,7 @@ const bundle = await build({
       export * from "./services/aiErrorService.ts";
       export {
         PLANNING_STORAGE_KEY,
+        activatePlanningRepositoryProducerWriter,
         createEmptyPlanningData,
         normalizePlanningPersistenceData
       } from "./services/planningRepository.ts";
@@ -52,6 +53,19 @@ const bundle = await build({
   plugins: [{
     name: "tauri-invoke-stub",
     setup(api) {
+      // This pre-SQLite suite owns only a process-local synthetic Planning
+      // envelope. Keep its current read contract without calling a real DB.
+      api.onResolve({ filter: /\/planningSQLitePersistence$/u }, () => ({
+        path: "planning-fixture-persistence", namespace: "fixture"
+      }));
+      api.onLoad({ filter: /.*/u, namespace: "fixture" }, () => ({
+        resolveDir: resolve(root, "src", "services"),
+        contents: `import { createPlanningRepositoryEnvelopeStore } from './planningRepositoryEnvelope.ts';
+          export const createPlanningSQLitePersistence=dependencies=>createPlanningRepositoryEnvelopeStore({
+            ...dependencies, getStorage:()=>window.localStorage,
+            isSnapshot:snapshot=>snapshot?.app==='LabPod' && Array.isArray(snapshot.projects)
+          });`
+      }));
       api.onResolve({ filter: /^@tauri-apps\/api\/core$/u }, () => ({
         path: "tauri-core",
         namespace: "stub"
@@ -75,6 +89,13 @@ new Function("require", "module", "exports", bundle.outputFiles[0].text)(
   harness.exports
 );
 const subject = harness.exports;
+// The current Planning envelope requires an admitted writer even for this
+// process-local synthetic repository used by Parse result readback.
+subject.activatePlanningRepositoryProducerWriter({
+  processGeneration: "TEST_ONLY_B5_RETRY",
+  producerSessionGeneration: 1,
+  transportGeneration: 1
+});
 
 const NOW = "2026-09-04T12:00:00.000Z";
 const PROJECT_ID = "project-lp15-a3-r4";

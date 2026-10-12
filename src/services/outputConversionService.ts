@@ -44,6 +44,7 @@ import {
   normalizeStructuredSummary
 } from "./outputFiveLayerContractService";
 import { ensureOutputManuscript } from "./outputManuscriptProvisioningService";
+import { commitOutputCandidateConversion } from "./outputCandidateCommitService";
 import { outputService } from "./outputService";
 import { publishWriteFeedbackRefresh } from "./refreshEventService";
 import { createWriteFeedbackResult, toWriteFeedbackMessage } from "./writeFeedbackService";
@@ -1570,6 +1571,7 @@ async function convertOutputCandidateToResearchOutput(
 
   const existingOutputByRelation = await findOutputByCandidateRelation(candidate.id);
   if (existingOutputByRelation) {
+    await ensureOutputManuscript("researchOutput", existingOutputByRelation.id, "primary");
     result.existingOutput = existingOutputByRelation;
     const updatedCandidate = await updateOutputCandidate(candidate.id, {
       status: "converted"
@@ -1631,7 +1633,7 @@ async function convertOutputCandidateToResearchOutput(
     `Converted from OutputCandidate: ${candidate.title}`;
   const outputType = input.outputType ?? outputTypeFromCandidateType(candidate.candidateType);
 
-  const createdOutput = await outputService.create({
+  const conversion = await commitOutputCandidateConversion(candidate, {
     projectId: candidate.projectId,
     taskId: candidate.taskId ?? undefined,
     experimentId,
@@ -1640,12 +1642,16 @@ async function convertOutputCandidateToResearchOutput(
     usableForPaper: input.usableForPaper ?? outputType === "paper_draft",
     description,
     provenance
-  });
-  result.createdOutput = createdOutput;
-
-  const updatedCandidate = await updateOutputCandidate(candidate.id, {
-    status: "converted"
-  });
+  }, input.allowUnresolvedGaps);
+  const createdOutput = conversion.output;
+  if (conversion.created) {
+    result.createdOutput = createdOutput;
+  } else {
+    result.existingOutput = createdOutput;
+    result.skipped.push("existing_output_for_candidate_relation");
+  }
+  result.provenance = createdOutput.provenance ?? provenance;
+  const updatedCandidate = await outputCandidateRepository.getById(candidate.id);
 
   if (updatedCandidate) {
     result.updatedCandidate = updatedCandidate;
@@ -1665,7 +1671,10 @@ async function convertOutputCandidateToResearchOutput(
     relationType: "converted_to",
     note: "OutputCandidate converted to ResearchOutput"
   });
-  result.linksCreated.push(relation.id);
+  if (conversion.created) result.linksCreated.push(relation.id);
+  else result.linksSkipped.push(relation.id);
+
+  await ensureOutputManuscript("researchOutput", createdOutput.id, "primary");
 
   return result;
 }

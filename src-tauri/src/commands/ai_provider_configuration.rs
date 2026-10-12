@@ -17,6 +17,10 @@ pub(crate) const PROVIDER_DEEPSEEK: &str = "deepseek";
 pub(crate) const PROVIDER_OPENAI: &str = "openai";
 pub(crate) const PROVIDER_TENCENT_TOKENHUB: &str = "tencent_tokenhub";
 pub(crate) const PROVIDER_KIMI: &str = "kimi";
+pub(crate) const PROVIDER_QWEN: &str = "qwen";
+pub(crate) const PROVIDER_GEMINI: &str = "gemini";
+pub(crate) const QWEN_MODEL: &str = "qwen3.7-plus";
+pub(crate) const GEMINI_MODEL: &str = "gemini-3.8-flash";
 pub(crate) const DEFAULT_DEEPSEEK_MODEL: &str = "deepseek-v4-flash";
 pub(crate) const OPENAI_MODEL: &str = "gpt-5.4-mini";
 pub(crate) const TOKENHUB_HY3_MODEL: &str = "hy3";
@@ -39,11 +43,14 @@ pub(crate) enum CanonicalAIProvider {
     Openai,
     TencentTokenhub,
     Kimi,
+    Qwen,
+    Gemini,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ProviderThinkingField {
     TypeDisabled,
+    EnableThinkingFalse,
     Omit,
 }
 
@@ -89,7 +96,7 @@ impl ProviderPreset {
     }
 }
 
-const PROVIDER_PRESETS: [ProviderPreset; 10] = [
+const PROVIDER_PRESETS: [ProviderPreset; 12] = [
     ProviderPreset {
         provider: CanonicalAIProvider::Deepseek,
         id: PROVIDER_DEEPSEEK,
@@ -188,6 +195,29 @@ const PROVIDER_PRESETS: [ProviderPreset; 10] = [
         endpoint: "https://api.moonshot.cn/v1/chat/completions",
         credential_target: "SciLoom/local.labpod.desktop/ai/kimi/api-key",
         thinking_field: ProviderThinkingField::TypeDisabled,
+        selectable: true,
+    },
+    // B5: one direct stable preset per provider; native secret/config owners stay shared.
+    // The inherited direct-provider gate permits not-configured deterministic presets;
+    // selectable is not a claim of live/runtime acceptance. See B5 admission matrix.
+    ProviderPreset {
+        provider: CanonicalAIProvider::Qwen,
+        id: PROVIDER_QWEN,
+        display_name: "Qwen (Singapore)",
+        model: QWEN_MODEL,
+        endpoint: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+        credential_target: "SciLoom/local.labpod.desktop/ai/qwen/api-key",
+        thinking_field: ProviderThinkingField::EnableThinkingFalse,
+        selectable: true,
+    },
+    ProviderPreset {
+        provider: CanonicalAIProvider::Gemini,
+        id: PROVIDER_GEMINI,
+        display_name: "Gemini",
+        model: GEMINI_MODEL,
+        endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        credential_target: "SciLoom/local.labpod.desktop/ai/gemini/api-key",
+        thinking_field: ProviderThinkingField::Omit,
         selectable: true,
     },
 ];
@@ -1399,7 +1429,7 @@ mod tests {
         assert_eq!(initial.active_provider, PROVIDER_DEEPSEEK);
         assert_eq!(initial.active_model, DEFAULT_DEEPSEEK_MODEL);
         assert!(!initial.has_explicit_active_tuple);
-        assert_eq!(initial.available_presets.len(), 7);
+        assert_eq!(initial.available_presets.len(), 9);
         assert_eq!(
             initial.configured_source,
             ConfiguredSource::EnvironmentFallback
@@ -1694,7 +1724,7 @@ mod tests {
         assert_eq!(initial["effectiveConfigured"], false);
         assert_eq!(initial["activeProvider"], PROVIDER_DEEPSEEK);
         assert_eq!(initial["hasExplicitActiveTuple"], false);
-        assert_eq!(initial["availablePresets"].as_array().unwrap().len(), 7);
+        assert_eq!(initial["availablePresets"].as_array().unwrap().len(), 9);
 
         let selected = tauri::test::get_ipc_response(
             &window,
@@ -1776,3 +1806,7 @@ mod tests {
         assert_eq!(restored["hasExplicitActiveTuple"], false);
     }
 }
+
+#[cfg(test)]
+#[path = "b5_provider_configuration_tests.rs"]
+mod b5_provider_configuration_tests;

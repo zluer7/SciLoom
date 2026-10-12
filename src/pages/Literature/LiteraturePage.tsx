@@ -96,6 +96,8 @@ import { FormalSwitchConfirmationDialog } from "../../components/common/FormalSw
 import { StructuredEditFieldGrid } from "../../components/common/StructuredEditFieldGrid";
 import { DataClearFooterRow } from "../../components/common/DataClearRow";
 import { LiteratureQuickAnalysisButton } from "../../components/ai/LiteratureQuickAnalysisButton";
+import { LiteratureCslJsonImportPanel } from "./LiteratureCslJsonImportPanel";
+import { LiteratureCitationExportPanel } from "./LiteratureCitationExportPanel";
 
 type LiteratureFormState = {
   title: string;
@@ -1790,6 +1792,11 @@ export function LiteraturePage() {
             >
               {t("newAction")}
             </button>
+            <LiteratureCslJsonImportPanel onCommitted={async (createdIds) => {
+              const nextFilters = { ...filters, primaryProjectId: "" };
+              setFilters(nextFilters);
+              await refreshAll(createdIds[0] ?? null, nextFilters);
+            }} />
           </div>
         </header>
 
@@ -2314,6 +2321,7 @@ export function LiteraturePage() {
             <header className="literature-detail-header">
               <h2>{t("literatureDetailsTitle")}</h2>
               <div className="literature-detail-actions">
+                <LiteratureCitationExportPanel key={selectedLiterature.id} literature={selectedLiterature} />
                 <button
                   className="literature-view-action-button primary-page-action primary-page-action--secondary"
                   type="button"

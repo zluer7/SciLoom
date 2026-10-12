@@ -10,6 +10,7 @@ src-tauri/target/
 coverage/
 
 # task/runtime cache and temporary state
+.sc3-a5-a1-acceptance/
 .tmp/
 tmp/
 .cache/

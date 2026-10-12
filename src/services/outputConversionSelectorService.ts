@@ -1,13 +1,11 @@
 import { experimentRunService } from "./experimentRunService";
 import { experimentService } from "./experimentService";
 import { fileRefService } from "./fileRefService";
-import { milestoneService } from "./milestoneService";
 import { outputConversionService } from "./outputConversionService";
 import { outputConversionRelationService } from "./outputConversionRelationService";
 import { outputService } from "./outputService";
 import { getPlanningData } from "./planningRepository";
 import { resultMetricService } from "./resultMetricService";
-import { taskService } from "./taskService";
 import { getOutputCandidateEvidenceChain } from "./outputChainAggregationService";
 import type { EntityId } from "../types";
 import type { OutputChainDto, OutputChainNode } from "../types/outputChain";
@@ -15,11 +13,9 @@ import type {
   Experiment,
   ExperimentRun,
   FileRef,
-  Milestone,
-  ResearchTask,
   ResultMetric
 } from "../types";
-import type { Project } from "../types/planning";
+import type { Project, RouteNode, Task } from "../types/planning";
 import type {
   EvidenceChainNode,
   EvidenceChainDTO,
@@ -91,8 +87,8 @@ export type ResultItemSourceContext = {
   metric?: ResultMetric | null;
   fileRef?: FileRef | null;
   project?: Project | null;
-  route?: Milestone | null;
-  task?: ResearchTask | null;
+  route?: RouteNode | null;
+  task?: Task | null;
 };
 
 export type ResultAssetDetailContext = {
@@ -226,8 +222,8 @@ function gapToFeedbackDTO(gap: OutputGap, candidateId: EntityId): OutputGapFeedb
 
 type ReferenceData = {
   projects: Project[];
-  routes: Milestone[];
-  tasks: ResearchTask[];
+  routes: RouteNode[];
+  tasks: Task[];
 };
 
 function uniqueIds(ids: Array<EntityId | null | undefined>) {
@@ -361,12 +357,10 @@ function isResultAsset(item: ResultItem): item is ResultAsset {
 }
 
 async function loadReferenceData(): Promise<ReferenceData> {
-  const [planningData, routes, tasks] = await Promise.all([
-    getPlanningData(),
-    milestoneService.listMilestones(),
-    taskService.listTasks()
-  ]);
+  const planningData = await getPlanningData();
   const projects = planningData.projects.filter((project) => !project.deletedAt);
+  const routes = planningData.routeNodes.filter((route) => !route.deletedAt);
+  const tasks = planningData.tasks.filter((task) => !task.deletedAt);
 
   return { projects, routes, tasks };
 }
@@ -375,16 +369,16 @@ function resolveProject(projects: Project[], projectId?: EntityId | null) {
   return projectId ? projects.find((project) => project.id === projectId) ?? null : null;
 }
 
-function resolveTask(tasks: ResearchTask[], taskId?: EntityId | null) {
+function resolveTask(tasks: Task[], taskId?: EntityId | null) {
   return taskId ? tasks.find((task) => task.id === taskId) ?? null : null;
 }
 
 function resolveRoute(
-  routes: Milestone[],
+  routes: RouteNode[],
   routeId?: EntityId | null,
-  task?: ResearchTask | null
+  task?: Task | null
 ) {
-  const actualRouteId = routeId ?? task?.milestoneId;
+  const actualRouteId = routeId ?? task?.routeNodeId;
   return actualRouteId ? routes.find((route) => route.id === actualRouteId) ?? null : null;
 }
 

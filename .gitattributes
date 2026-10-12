@@ -1,0 +1,5 @@
+# Internal acceptance authority is not public source material.
+# This affects archives only after Owner checkpoints this file, or when
+# a separately authorized exporter explicitly uses worktree attributes.
+/.sc3-a5-a1-acceptance export-ignore
+/.sc3-a5-a1-acceptance/** export-ignore

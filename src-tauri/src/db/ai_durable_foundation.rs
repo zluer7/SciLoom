@@ -711,6 +711,8 @@ pub struct AIConversationRecord {
     pub stable_key: String,
     pub created_at: String,
     pub updated_at: String,
+    #[serde(flatten)]
+    pub management: super::ai_conversation_management::ConversationManagement,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -725,6 +727,8 @@ pub struct AIConversationSummaryRecord {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub latest_message: Option<String>,
     pub message_count: i64,
+    #[serde(flatten)]
+    pub management: super::ai_conversation_management::ConversationManagement,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -1350,7 +1354,7 @@ fn read_conversation_record(
     connection: &Connection,
     conversation_id: &str,
 ) -> Result<AIConversationRecord, String> {
-    connection
+    let mut result = connection
         .query_row(
             "SELECT id,stable_key,created_at,updated_at FROM ai_conversations WHERE id=?1",
             [conversation_id],
@@ -1360,10 +1364,14 @@ fn read_conversation_record(
                     stable_key: row.get(1)?,
                     created_at: row.get(2)?,
                     updated_at: row.get(3)?,
+                    management: Default::default(),
                 })
             },
         )
-        .map_err(|error| fail("AI_DURABLE_READ_FAILED", error.to_string()))
+        .map_err(|error| fail("AI_DURABLE_READ_FAILED", error.to_string()))?;
+    result.management = super::ai_conversation_management::read(connection,conversation_id)
+        .map_err(|error| fail("AI_DURABLE_READ_FAILED",error.to_string()))?;
+    Ok(result)
 }
 
 pub(crate) fn create_ai_conversation_in_connection(
@@ -7718,8 +7726,8 @@ pub(crate) fn settle_ai_call_attempt_failure_in_connection(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn db_create_ai_conversation(
-    app_handle: AppHandle,
+pub fn db_create_ai_conversation<R: tauri::Runtime>(
+    app_handle: AppHandle<R>,
     input: CreateAIConversationInput,
 ) -> Result<AIConversationRecord, String> {
     let connection = super::open_connection(&app_handle)?;
@@ -7835,8 +7843,8 @@ pub fn db_settle_ai_call_attempt_failure(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn db_read_ai_conversation(
-    app_handle: AppHandle,
+pub fn db_read_ai_conversation<R: tauri::Runtime>(
+    app_handle: AppHandle<R>,
     conversation_id: String,
 ) -> Result<AIConversationReadback, String> {
     let connection = super::open_connection(&app_handle)?;
@@ -7860,8 +7868,9 @@ fn list_ai_conversations_in_connection(
              )
              SELECT c.id,c.stable_key,c.created_at,c.updated_at,
                     substr(first.content,1,240),substr(latest.content,1,400),
-                    COALESCE(counts.message_count,0)
+                    COALESCE(counts.message_count,0),m.title,m.archived_at,m.trashed_at,COALESCE(m.revision,0)
              FROM ai_conversations c
+             LEFT JOIN ai_conversation_management m ON m.conversation_id=c.id
              LEFT JOIN first_user first_id ON first_id.conversation_id=c.id
              LEFT JOIN ai_messages first ON first.conversation_id=c.id
                   AND first.sequence=first_id.sequence
@@ -7882,6 +7891,7 @@ fn list_ai_conversations_in_connection(
                 first_user_message: row.get(4)?,
                 latest_message: row.get(5)?,
                 message_count: row.get(6)?,
+                management: super::ai_conversation_management::ConversationManagement {title:row.get(7)?,archived_at:row.get(8)?,trashed_at:row.get(9)?,revision:row.get(10)?},
             })
         })
         .map_err(|error| fail("AI_DURABLE_READ_FAILED", error.to_string()))?;
@@ -7890,8 +7900,8 @@ fn list_ai_conversations_in_connection(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn db_list_ai_conversations(
-    app_handle: AppHandle,
+pub fn db_list_ai_conversations<R: tauri::Runtime>(
+    app_handle: AppHandle<R>,
 ) -> Result<Vec<AIConversationSummaryRecord>, String> {
     let connection = super::open_connection(&app_handle)?;
     list_ai_conversations_in_connection(&connection)

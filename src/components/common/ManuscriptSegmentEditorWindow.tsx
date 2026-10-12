@@ -52,6 +52,7 @@ import { ManuscriptSegmentEditor } from "./ManuscriptSegmentEditor";
 import { ManuscriptSegmentPreview } from "./ManuscriptSegmentPreview";
 import { ManuscriptTemplateWorkspacePanel } from "./ManuscriptTemplateWorkspacePanel";
 import { SharedEditorLifecycleDecisionDialog } from "./SharedEditorLifecycleDecisionDialog";
+import { ManuscriptStructuredSidebar, type ManuscriptStructuredSidebarHandle } from "./ManuscriptStructuredSidebar";
 
 export type ManuscriptSegmentEditorLifecycleBinding = {
   participantId: string;
@@ -195,6 +196,7 @@ export function ManuscriptSegmentEditorWindow(props: ManuscriptSegmentEditorWind
   }>>();
   const [operationLock, setOperationLock] = useState<"preview" | "save-as" | "insertion">();
   const operationLockRef = useRef<typeof operationLock>();
+  const structuredSidebarRef = useRef<ManuscriptStructuredSidebarHandle>(null);
 
   adapterRef.current = sessionAdapter;
   lifecycleRef.current = lifecycle;
@@ -226,7 +228,7 @@ export function ManuscriptSegmentEditorWindow(props: ManuscriptSegmentEditorWind
     const projectionState = readProjectionState();
     return {
       ...session,
-      dirty: projectionState?.dirty ?? session.dirty
+      dirty: (projectionState?.dirty ?? session.dirty) || Boolean(structuredSidebarRef.current?.isDirty())
     };
   }
 
@@ -238,7 +240,7 @@ export function ManuscriptSegmentEditorWindow(props: ManuscriptSegmentEditorWind
     const state = readProjectionState();
     const currentProps = propsRef.current;
     if (
-      !state || operationLockRef.current ||
+      !state || operationLockRef.current || structuredSidebarRef.current?.isSaving() ||
       currentProps.disabled || currentProps.draftReadOnly || currentProps.saveDisabled
     ) {
       return false;
@@ -292,6 +294,18 @@ export function ManuscriptSegmentEditorWindow(props: ManuscriptSegmentEditorWind
     }
     setLocalError("");
     setOrdinaryFeedback(undefined);
+  }
+
+  async function saveLifecycleDrafts() {
+    // Two explicit saves, without a cross-store transaction. A failed draft stays dirty.
+    if (structuredSidebarRef.current?.isDirty() && !await structuredSidebarRef.current.save()) return false;
+    if (readProjectionState()?.dirty) return runSave();
+    return true;
+  }
+
+  async function discardLifecycleDrafts() {
+    await runDiscard();
+    structuredSidebarRef.current?.discard();
   }
 
   async function buildCurrentDraftSnapshot() {
@@ -480,7 +494,18 @@ export function ManuscriptSegmentEditorWindow(props: ManuscriptSegmentEditorWind
   }
 
   async function runFooterAction(action: ManuscriptSegmentEditorWindowAction) {
-    if (operationLockRef.current) return;
+    if (operationLockRef.current || structuredSidebarRef.current?.isSaving()) return;
+    if (structuredSidebarRef.current?.isDirty()) {
+      const slot = classifyF3FooterActionSlot(action, ui);
+      await sharedEditorLifecycleController.requestParticipant({
+        participantId: lifecycleRef.current.participantId,
+        trigger: slot === "save-as" ? "save-as-continue" : slot === "reload" ? "reload" : slot === "switch" ? "switch-manuscript" : "open-current",
+        continuationIntent: slot === "save-as" ? "SAVE_AS_CONTINUE" : slot === "reload" ? "RELOAD" : slot === "switch" ? "SWITCH_MANUSCRIPT" : "OPEN_CURRENT",
+        surface: "editor",
+        continuation: async () => { await runFooterAction(action); }
+      });
+      return;
+    }
     if (action.intent !== "save-as") {
       await action.onClick();
       return;
@@ -547,10 +572,10 @@ export function ManuscriptSegmentEditorWindow(props: ManuscriptSegmentEditorWind
       participantId: lifecycle.participantId,
       handle: lifecycle.handle,
       presentationEpoch: lifecycle.presentationEpoch,
-      operationBlocked: () => Boolean(operationLockRef.current),
+      operationBlocked: () => Boolean(operationLockRef.current || structuredSidebarRef.current?.isSaving()),
       readSession: readLifecycleSession,
-      save: runSave,
-      discard: runDiscard
+      save: saveLifecycleDrafts,
+      discard: discardLifecycleDrafts
     };
     let unregister: (() => void) | undefined;
     try {
@@ -621,7 +646,7 @@ export function ManuscriptSegmentEditorWindow(props: ManuscriptSegmentEditorWind
     }
   };
   const requestClose = async (kind: "cancel" | "close", trigger: "top-close" | "footer-cancel" | "backdrop") => {
-    if (saving || operationLockRef.current) return;
+    if (saving || operationLockRef.current || structuredSidebarRef.current?.isSaving()) return;
     const result = await sharedEditorLifecycleController.requestParticipant({
       participantId: lifecycle.participantId,
       trigger,
@@ -629,7 +654,7 @@ export function ManuscriptSegmentEditorWindow(props: ManuscriptSegmentEditorWind
       surface: "editor",
       continuation: () => finishClose(kind)
     });
-    if (result.status === "unavailable") await finishClose(kind);
+    if (result.status === "unavailable" && !structuredSidebarRef.current?.isDirty()) await finishClose(kind);
   };
   const currentFooterSlots = [
     { slot: "open", label: ui("打开文稿") },
@@ -705,6 +730,16 @@ export function ManuscriptSegmentEditorWindow(props: ManuscriptSegmentEditorWind
           {editorVariant.showStructuredSummary ? (
             <aside className="markdown-editor-sidebar" aria-label={ui("结构化纲要")}>
               <h3>{ui("结构化纲要")}</h3>
+              {props.entryKind === "current" && session ? <ManuscriptStructuredSidebar
+                key={`${session.logicalIdentity.ownerId}:${session.logicalIdentity.channel}`}
+                ref={structuredSidebarRef}
+                identity={{ ...descriptorLookupIdentity, ownerId: session.logicalIdentity.ownerId }}
+                disabled={readOnly || props.loading || attachError || !visibleProjectionState || Boolean(operationLock) || saving}
+                interactionBlocked={Boolean(lifecycleRequest)}
+                ui={ui}
+                onDraftChange={() => sharedEditorLifecycleController.markActive(lifecycleRef.current.participantId)}
+              /> : null}
+              {props.entryKind !== "current" ? (
               <dl>
                 {readonlyContextItems.map((item) => (
                   <div key={`${item.label}:${item.value}`}>
@@ -713,6 +748,7 @@ export function ManuscriptSegmentEditorWindow(props: ManuscriptSegmentEditorWind
                   </div>
                 ))}
               </dl>
+              ) : null}
             </aside>
           ) : null}
           <div className="markdown-editor-main">
@@ -849,7 +885,9 @@ export function ManuscriptSegmentEditorWindow(props: ManuscriptSegmentEditorWind
           <SharedEditorLifecycleDecisionDialog
             request={lifecycleRequest}
             title={props.unsavedChangesTitle ?? ui("当前文稿有未保存更改")}
-            message={props.unsavedChangesLabel ?? ui("关闭前，请选择保存更改、放弃更改或取消关闭。")}
+            message={structuredSidebarRef.current?.isDirty()
+              ? ui("结构化草稿尚未保存。保存更改会分别保存结构化内容及已修改的 Raw 文稿；若部分失败，已成功的保存会保留。放弃更改将取消两类草稿。")
+              : props.unsavedChangesLabel ?? ui("关闭前，请选择保存更改、放弃更改或取消关闭。")}
             saveLabel={props.saveChangesLabel ?? ui("保存并关闭")}
             discardLabel={props.discardChangesLabel ?? ui("放弃更改")}
             cancelLabel={props.continueEditingLabel ?? ui("取消")}

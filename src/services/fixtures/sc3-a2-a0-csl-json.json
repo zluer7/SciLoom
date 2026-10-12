@@ -1,0 +1,50 @@
+[
+  {
+    "id": "sc3-a2-a0-article",
+    "type": "article-journal",
+    "title": "SC3 A2 A0 Synthetic Research Article",
+    "author": [
+      { "given": "Ada", "family": "Example" },
+      { "given": "Lin", "family": "Sample" }
+    ],
+    "issued": { "date-parts": [[2024, 5, 18]] },
+    "container-title": "Synthetic Methods Journal",
+    "DOI": "10.0000/sc3-a2-a0.synthetic",
+    "URL": "https://example.org/sc3-a2-a0-article",
+    "keyword": "methods; reproducibility",
+    "abstract": "Controlled metadata fixture; not a real publication.",
+    "citation-key": "ExampleSample2024",
+    "volume": "12"
+  },
+  {
+    "id": "sc3-a2-a0-zh-book",
+    "type": "book",
+    "title": "SC3 文献导入中文样本",
+    "author": [
+      { "literal": "示例研究组" },
+      { "given": "明", "family": "李" }
+    ],
+    "issued": { "raw": "2022" },
+    "URL": "https://example.org/sc3-a2-a0-book",
+    "keyword": "中文，元数据",
+    "note": "This note must not be imported or displayed."
+  },
+  {
+    "id": "sc3-a2-a0-map",
+    "type": "map",
+    "title": "SC3 A2 A0 Unknown Type Fallback",
+    "author": [
+      { "given": "One", "family": "Author" },
+      { "given": "Two", "family": "Author" },
+      { "literal": "Sample Institute" }
+    ],
+    "issued": { "raw": "Spring 2021" },
+    "attachment": "C:\\private\\do-not-open.pdf",
+    "annote": "Annotation body must not be imported or displayed."
+  },
+  {
+    "id": "sc3-a2-a0-invalid",
+    "type": "article-journal",
+    "author": [{ "family": "Untitled" }]
+  }
+]

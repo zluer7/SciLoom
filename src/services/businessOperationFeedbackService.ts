@@ -32,9 +32,13 @@ export interface BusinessOperationToastEntry extends BusinessOperationTerminal {
   createdAt: string;
 }
 
-export interface BusinessOperationHistoryEntry extends BusinessOperationTerminal {
+export type BusinessOperationHistoryResult = BusinessOperationResult | "partial" | "skipped" | "unknown";
+
+export interface BusinessOperationHistoryEntry extends Omit<BusinessOperationTerminal, "result"> {
+  result: BusinessOperationHistoryResult;
   id: string;
   createdAt: string;
+  objectTitle?: string;
 }
 
 type ObjectMetadata = {
@@ -272,15 +276,18 @@ const ACTION_LABELS: Record<
 };
 
 const RESULT_LABELS: Record<
-  BusinessOperationResult,
+  BusinessOperationHistoryResult,
   Record<BusinessOperationLanguage, string>
 > = {
   success: { "zh-CN": "成功", "en-US": "Succeeded" },
-  failure: { "zh-CN": "失败", "en-US": "Failed" }
+  failure: { "zh-CN": "失败", "en-US": "Failed" },
+  partial: { "zh-CN": "部分成功", "en-US": "Partially succeeded" },
+  skipped: { "zh-CN": "未执行", "en-US": "Skipped" },
+  unknown: { "zh-CN": "结果未知", "en-US": "Outcome unknown" }
 };
 
 export function businessOperationPresentation(
-  terminal: BusinessOperationTerminal,
+  terminal: Pick<BusinessOperationHistoryEntry, "objectType" | "action" | "result">,
   language: BusinessOperationLanguage
 ) {
   const objectLabel = BUSINESS_OPERATION_OBJECT_METADATA[terminal.objectType].labels[language];
@@ -360,7 +367,6 @@ export function projectBusinessOperationLogEntry(
     entry.operationType !== "update" &&
     entry.operationType !== "delete"
   ) return undefined;
-  if (entry.status !== "success" && entry.status !== "error") return undefined;
   if (!entry.target.entityId?.trim() || !entry.createdAt?.trim()) return undefined;
 
   const objectTypes = (
@@ -380,8 +386,13 @@ export function projectBusinessOperationLogEntry(
     id: entry.id,
     objectType,
     action,
-    result: entry.status === "success" ? "success" : "failure",
-    createdAt: entry.createdAt
+    result: entry.status === "success" ? "success"
+      : entry.status === "error" ? "failure"
+      : entry.status === "partial" ? "partial"
+      : entry.status === "skipped" ? "skipped" : "unknown",
+    createdAt: entry.createdAt,
+    ...(entry.target.title?.trim() && entry.target.title.trim() !== entry.target.entityId
+      ? { objectTitle: entry.target.title } : {})
   };
 }
 

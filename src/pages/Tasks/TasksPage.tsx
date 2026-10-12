@@ -65,6 +65,8 @@ import type {
 } from "../../types/planning";
 import type { RefreshEvent, RefreshKeyPattern } from "../../types/refresh";
 import { isTaskIdeaType, type TaskIdeaType } from "../../utils/planningIdeaState";
+import { ROUTINE_CALENDAR_COLOR_KEYS, type RoutineCalendarColor } from "../../types/planning";
+import { routineCalendarPalette } from "../../components/routineCalendarPalette";
 
 type Project = PlanningProjectPageProject;
 type PlanningRouteEntry = PlanningProjectPlanRouteEntry;
@@ -111,6 +113,8 @@ type RoutineFormState = {
   targetDescription: string;
   projectId: string;
   isActive: boolean;
+  showInRollingWeek: boolean;
+  rollingWeekColor: RoutineCalendarColor;
   startDate: string;
   endDate: string;
 };
@@ -253,6 +257,8 @@ const emptyRoutineForm: RoutineFormState = {
   targetDescription: "",
   projectId: "",
   isActive: true,
+  showInRollingWeek: false,
+  rollingWeekColor: "sage",
   startDate: "",
   endDate: ""
 };
@@ -319,6 +325,8 @@ function toRoutineForm(routine: ResearchRoutine): RoutineFormState {
     targetDescription: routine.targetDescription ?? "",
     projectId: routine.projectId ?? "",
     isActive: routine.isActive,
+    showInRollingWeek: routine.showInRollingWeek ?? false,
+    rollingWeekColor: routine.rollingWeekColor ?? "sage",
     startDate: routine.startDate ?? "",
     endDate: routine.endDate ?? ""
   };
@@ -573,7 +581,7 @@ function captureStateForTask(form: TaskFormState): CaptureState {
 }
 
 export function TasksPage() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const queryProjectId = searchParams.get("projectId");
@@ -671,7 +679,11 @@ export function TasksPage() {
     setLoadErrorMessage("");
 
     try {
-      const pageModel = await planningPageAdapterService.getPlanningTasksPageModel();
+      // This board consumes Task/Route/Project facts and Routine summaries only.
+      // Gap detail is read by its own existing entry points when requested.
+      const pageModel = await planningPageAdapterService.getPlanningTasksPageModel({
+        includeOutputGapSummaries: false
+      });
       if (!isTaskPageMountedRef.current || requestId !== loadRequestIdRef.current) {
         return;
       }
@@ -1246,6 +1258,8 @@ export function TasksPage() {
       targetDescription: routineForm.targetType === "description" ? targetDescription : undefined,
       projectId: routineForm.projectId || undefined,
       isActive: routineForm.isActive,
+      showInRollingWeek: routineForm.showInRollingWeek,
+      rollingWeekColor: routineForm.rollingWeekColor,
       startDate: routineForm.startDate || undefined,
       endDate: routineForm.endDate || undefined
     };
@@ -2247,16 +2261,34 @@ export function TasksPage() {
               </label>
             </div>
 
-            <label className="checkbox-row">
-              <input
-                type="checkbox"
-                checked={routineForm.isActive}
-                onChange={(event) =>
-                  setRoutineForm({ ...routineForm, isActive: event.target.checked })
-                }
-              />
-              {t("routineIsActive")}
-            </label>
+            <div className="task-routine-calendar-options">
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={routineForm.isActive}
+                  onChange={(event) =>
+                    setRoutineForm({ ...routineForm, isActive: event.target.checked })
+                  }
+                />
+                {t("routineIsActive")}
+              </label>
+              <label className="checkbox-row">
+                <input type="checkbox" checked={routineForm.showInRollingWeek}
+                  onChange={event => setRoutineForm({ ...routineForm, showInRollingWeek: event.target.checked })} />
+                {language === "zh-CN" ? "显示在滚动周历" : "Show in rolling weeks"}
+              </label>
+              <div className="task-routine-calendar-colors" role="group"
+                aria-label={language === "zh-CN" ? "周历颜色" : "Calendar color"}>
+                {ROUTINE_CALENDAR_COLOR_KEYS.map(key => (
+                  <button key={key} type="button" data-color-key={key}
+                    className={`task-routine-calendar-color${routineForm.rollingWeekColor === key ? " is-selected" : ""}`}
+                    aria-label={language === "zh-CN" ? routineCalendarPalette[key].zh : routineCalendarPalette[key].en}
+                    aria-pressed={routineForm.rollingWeekColor === key} disabled={!routineForm.showInRollingWeek}
+                    style={{ backgroundColor: routineCalendarPalette[key].color }}
+                    onClick={() => setRoutineForm({ ...routineForm, rollingWeekColor: key })} />
+                ))}
+              </div>
+            </div>
 
             {routineFormError ? (
               <span className="task-routine-field-error">{routineFormError}</span>

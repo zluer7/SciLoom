@@ -1,3 +1,5 @@
+import { emit } from "@tauri-apps/api/event";
+
 export interface AuthorityInvalidation {
   domain: "planning" | "fileRef" | "binding" | "managedRoot";
   projectId?: string;
@@ -13,8 +15,9 @@ export function publishAuthorityInvalidation(input: AuthorityInvalidation) {
     window.dispatchEvent(new CustomEvent(AUTHORITY_INVALIDATION_EVENT, {
       detail: Object.freeze({ ...input })
     }));
-    void import("@tauri-apps/api/event")
-      .then(({ emit }) => emit(AUTHORITY_INVALIDATION_EVENT, input))
+    // Keep native delivery outside the caller's synchronous stack.
+    void Promise.resolve()
+      .then(() => emit(AUTHORITY_INVALIDATION_EVENT, input))
       .catch(() => undefined);
   }
 }

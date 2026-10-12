@@ -23,12 +23,14 @@ export function isTauriRuntime() {
 }
 
 export function getDataSourceMode(): DataSourceMode {
-  if (typeof window === "undefined" || !window.localStorage) {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) return "auto";
+    const stored = window.localStorage.getItem(DATA_SOURCE_MODE_KEY);
+    return isDataSourceMode(stored) ? stored : "auto";
+  } catch {
+    // A denied preference read retains the existing automatic runtime authority.
     return "auto";
   }
-
-  const stored = window.localStorage.getItem(DATA_SOURCE_MODE_KEY);
-  return isDataSourceMode(stored) ? stored : "auto";
 }
 
 export function setDataSourceMode(mode: DataSourceMode): DataSourceMode {

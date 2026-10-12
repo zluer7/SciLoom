@@ -89,6 +89,8 @@ import {
 } from "../../services/resultMetricService";
 import { ExperimentQuickAnalysisButton } from "./ExperimentQuickAnalysisButton";
 import { ExperimentRunQuickAnalysisButton } from "./ExperimentRunQuickAnalysisButton";
+import { ExperimentRunComparisonPanel } from "./ExperimentRunComparisonPanel";
+import { experimentSetupDraft, experimentRunSetupDraft } from "../../services/experimentSetupReuseService";
 import {
   addWriteFeedbackWarning,
   createWriteFeedbackResult
@@ -612,6 +614,12 @@ export function ExperimentsPage() {
   const [editingRunId, setEditingRunId] = useState<string | null>(null);
   const [experimentPanelMode, setExperimentPanelMode] = useState<ExperimentPanelMode>("view");
   const [runPanelMode, setRunPanelMode] = useState<RunPanelMode>("view");
+  const [experimentSetupReused, setExperimentSetupReused] = useState(false);
+  const [runSetupReused, setRunSetupReused] = useState(false);
+  const experimentPanelModeRef = useRef(experimentPanelMode);
+  const runPanelModeRef = useRef(runPanelMode);
+  experimentPanelModeRef.current = experimentPanelMode;
+  runPanelModeRef.current = runPanelMode;
   const [keyword, setKeyword] = useState("");
   const [filterProjectId, setFilterProjectId] = useState(
     () => readSharedCurrentProjectSelection() ?? ""
@@ -991,14 +999,11 @@ export function ExperimentsPage() {
           targetId: context.experiment.id,
           defaultDisplayed: false
         });
-        setExperimentForm((current) =>
-          experimentPanelMode === "create" ||
-          (experimentPanelMode === "edit" && editingExperimentId === context.experiment.id)
-            ? current
-            : { ...experimentToForm(context.experiment), researchTraceDisplayChecked }
-        );
+        if (!isExperimentPageMountedRef.current || requestId !== detailRequestIdRef.current) return;
+        setExperimentForm((current) => experimentPanelModeRef.current !== "view"
+          ? current : { ...experimentToForm(context.experiment), researchTraceDisplayChecked });
         setExperimentResearchTraceDisplayCheckedSnapshot(researchTraceDisplayChecked);
-        setEditingExperimentId(context.experiment.id);
+        if (experimentPanelModeRef.current === "view") setEditingExperimentId(context.experiment.id);
         const preferredRunId = options.preferredRunId ?? selectedRunId;
         const nextRunId =
           preferredRunId && context.runs.some((run) => run.id === preferredRunId)
@@ -1015,10 +1020,9 @@ export function ExperimentsPage() {
         } else {
           setRunContext(null);
           setRunMarkdown("");
-          setRunForm(emptyRunForm);
+          if (runPanelModeRef.current === "view") setRunForm(emptyRunForm);
           setRunResearchTraceDisplayCheckedSnapshot(false);
-          setEditingRunId(null);
-          setRunPanelMode("view");
+          if (runPanelModeRef.current === "view") setEditingRunId(null);
           setIsRunFileRefPanelOpen(false);
         }
       } else {
@@ -1062,18 +1066,18 @@ export function ExperimentsPage() {
               defaultDisplayed: false
             })
           : false;
-        setRunForm({
-          ...runToForm(context.run),
-          researchTraceDisplayChecked
+        if (!isExperimentPageMountedRef.current || requestId !== runRequestIdRef.current) return;
+        setRunForm(current => runPanelModeRef.current !== "view" ? current : {
+          ...runToForm(context.run), researchTraceDisplayChecked
         });
         setRunResearchTraceDisplayCheckedSnapshot(researchTraceDisplayChecked);
-        setEditingRunId(context.run.id);
+        if (runPanelModeRef.current === "view") setEditingRunId(context.run.id);
       } else {
         setSelectedRunId(null);
         setGeneratedResultItemsByMetricId({});
-        setRunForm(emptyRunForm);
+        if (runPanelModeRef.current === "view") setRunForm(emptyRunForm);
         setRunResearchTraceDisplayCheckedSnapshot(false);
-        setEditingRunId(null);
+        if (runPanelModeRef.current === "view") setEditingRunId(null);
       }
     } catch (error) {
       if (!isExperimentPageMountedRef.current || requestId !== runRequestIdRef.current) {
@@ -2360,6 +2364,9 @@ export function ExperimentsPage() {
   }
 
   function startCreateExperiment() {
+    setExperimentSetupReused(false);
+    experimentPanelModeRef.current = "create";
+    detailRequestIdRef.current += 1;
     const projectId = filterProjectId || projects[0]?.id || "";
     const routeId = sanitizeRouteIdForProject(filterRouteId, projectId, routes);
     setEditingExperimentId(null);
@@ -2378,10 +2385,31 @@ export function ExperimentsPage() {
       showPageFeedback("warning", t("selectExperimentBeforeRun"), "experimentRun.create");
       return;
     }
+    runPanelModeRef.current = "create";
+    setRunSetupReused(false);
+    runRequestIdRef.current += 1;
     setEditingRunId(null);
     setRunPanelMode("create");
     setRunForm(emptyRunForm);
     setMessage(ui("正在新建 Run。"));
+  }
+
+  function reuseExperimentSetup() {
+    if (!detailContext) return;
+    const setup = experimentSetupDraft(detailContext.experiment);
+    startCreateExperiment();
+    setExperimentSetupReused(true);
+    setExperimentForm(current => ({ ...current, ...setup }));
+    setMessage(language === "zh-CN" ? "已带入目的、条件和方法；请编辑草稿后创建。未复制结果、关系或文件。" : "Purpose, conditions and method filled. Review/edit the draft before Create. Results, source relations and files were not copied.");
+  }
+
+  function reuseRunSetup() {
+    if (!runContext || runContext.run.experimentId !== selectedExperimentId) return;
+    const setup = experimentRunSetupDraft(runContext.run);
+    startCreateRun();
+    setRunSetupReused(true);
+    setRunForm(current => ({ ...current, ...setup }));
+    setMessage(language === "zh-CN" ? "已带入条件、变量参数和方法；目标为当前实验，按正常创建规则继承目标关系。请编辑后创建，结果和文件未复制。" : "Conditions, parameters and method filled. Target: the current Experiment; normal target relation inheritance applies. Edit before Create; results and files were not copied.");
   }
 
   function startEditExperiment() {
@@ -2889,6 +2917,9 @@ export function ExperimentsPage() {
                   >
                     {t("edit")}
                   </button>
+                  <button type="button" className="primary-page-action primary-page-action--secondary" data-testid="reuse-experiment-setup" onClick={reuseExperimentSetup}>
+                    {language === "zh-CN" ? "复用设置新建" : "New from setup"}
+                  </button>
                 </div>
               )}
             </div>
@@ -2977,6 +3008,7 @@ export function ExperimentsPage() {
               <div className="experiment-form-modal-overlay" role="presentation">
               <form
                 className="module-form experiment-maintenance-form experiment-edit-panel experiment-form-modal"
+                data-testid="experiment-create-edit-form"
                 onSubmit={(event) => void submitExperiment(event)}
                 role="dialog"
                 aria-modal="true"
@@ -2995,6 +3027,10 @@ export function ExperimentsPage() {
                     {ui("关闭")}
                   </button>
                 </div>
+
+                {experimentPanelMode === "create" && experimentSetupReused && <p className="settings-section-explanation">
+                  {language === "zh-CN" ? "仅带入目的、条件和方法，均可编辑。新名称和目标课题由本表单确认，结果、源关系和文件未复制。" : "Only purpose, conditions and method were filled; all are editable. Confirm a new name and target Project here. Results, source relations and files were not copied."}
+                </p>}
 
                 <section className="experiment-form-section">
                   <h5>{ui("实验基础信息")}</h5>
@@ -3240,7 +3276,7 @@ export function ExperimentsPage() {
                       : undefined
                   }
                 >
-                  <button type="submit">{t("save")}</button>
+                  <button type="submit">{experimentPanelMode === "create" ? (language === "zh-CN" ? "创建" : "Create") : t("save")}</button>
                   <button type="button" onClick={cancelExperimentPanel}>
                     {t("cancel")}
                   </button>
@@ -3256,6 +3292,15 @@ export function ExperimentsPage() {
       <section className="experiments-section runs-section">
         <div className="experiments-section-header">
           <h2>{t("runListTitle")}</h2>
+              <button
+                type="button"
+                className="primary-page-action primary-page-action--primary"
+                onClick={startCreateRun}
+                disabled={!selectedExperimentId}
+                title={!selectedExperimentId ? t("selectExperimentBeforeRun") : undefined}
+              >
+                {t("newAction")}
+              </button>
         </div>
 
         <div className="experiments-list-detail-layout">
@@ -3289,15 +3334,8 @@ export function ExperimentsPage() {
                 onChange={(event) => setRunKeyword(event.target.value)}
                 placeholder={t("runKeywordPlaceholder")}
               />
-              <button
-                type="button"
-                className="primary-page-action primary-page-action--primary"
-                onClick={startCreateRun}
-                disabled={!selectedExperimentId}
-                title={!selectedExperimentId ? t("selectExperimentBeforeRun") : undefined}
-              >
-                {t("newAction")}
-              </button>
+              <ExperimentRunComparisonPanel experimentId={selectedExperimentId ?? ""} runs={detailContext?.experiment.id === selectedExperimentId ? detailContext.runs : []} language={language} />
+
             </div>
             <div className="run-list-body">
               {!selectedExperimentId && (
@@ -3325,6 +3363,7 @@ export function ExperimentsPage() {
                 <p className="run-empty-box">{t("runEmpty")}</p>
               )}
             </div>
+
           </div>
 
           <div className="experiments-detail-column">
@@ -3338,6 +3377,9 @@ export function ExperimentsPage() {
                     onClick={startEditRun}
                   >
                     {t("edit")}
+                  </button>
+                  <button type="button" className="primary-page-action primary-page-action--secondary" data-testid="reuse-run-setup" onClick={reuseRunSetup}>
+                    {language === "zh-CN" ? "复用设置新建" : "New from setup"}
                   </button>
                 </div>
               )}
@@ -3638,6 +3680,7 @@ export function ExperimentsPage() {
               <div className="experiment-form-modal-overlay" role="presentation">
               <form
                 className="module-form experiment-maintenance-form run-edit-panel experiment-form-modal"
+                data-testid="run-create-edit-form"
                 onSubmit={(event) => void submitRun(event)}
                 role="dialog"
                 aria-modal="true"
@@ -3656,6 +3699,10 @@ export function ExperimentsPage() {
                     ×
                   </button>
                 </div>
+
+                {runPanelMode === "create" && runSetupReused && <p className="settings-section-explanation">
+                  {language === "zh-CN" ? "仅带入条件、变量参数和方法，均可编辑。目标为下方当前实验；按正常创建规则继承目标关系，结果和文件未复制。" : "Only conditions, parameters and method were filled; all are editable. Target: the current Experiment below. Normal target relation inheritance applies; results and files were not copied."}
+                </p>}
 
                 <section className="experiment-form-section">
                   <h5>{ui("Run 基础信息")}</h5>
@@ -3826,7 +3873,7 @@ export function ExperimentsPage() {
                       : undefined
                   }
                 >
-                  <button type="submit">{t("save")}</button>
+                  <button type="submit">{runPanelMode === "create" ? (language === "zh-CN" ? "创建" : "Create") : t("save")}</button>
                   <button type="button" onClick={cancelRunPanel}>
                     {t("cancel")}
                   </button>

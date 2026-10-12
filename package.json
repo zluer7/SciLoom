@@ -1,6 +1,6 @@
 {
   "name": "labpod",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,11 +9,14 @@
     "test:release": "node scripts/run-release-tests.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "tauri": "tauri",
-    "tauri:dev": "tauri dev",
+    "tauri:dev": "node scripts/tauri-dev.mjs",
     "tauri:build": "tauri build"
   },
   "dependencies": {
     "@assistant-ui/react": "0.15.14",
+    "@radix-ui/react-alert-dialog": "1.1.23",
+    "@radix-ui/react-dialog": "1.1.23",
+    "@radix-ui/react-dropdown-menu": "2.1.24",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-opener": "^2.5.4",

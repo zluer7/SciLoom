@@ -277,6 +277,17 @@ export function AIProviderSettingsPanel() {
           ? "配置 AI 模型和 API Key，保存后将用于 SciLoom 的 AI 功能"
           : "Configure the AI model and API Key; saved settings are used by SciLoom AI features"}
       </p>
+      <p className="settings-section-explanation">
+        {zh
+          ? "手动选择固定模型并保存；所有 AI 功能使用同一个当前 Provider / 模型。已配置表示凭据可用，不代表每次请求或返回合同验证一定成功。"
+          : "Choose a curated model and save it manually. All AI features use one active Provider / model. Configured credentials do not guarantee a successful request or valid response contract."}
+      </p>
+      {draftProvider === "qwen" ? <p className="settings-section-explanation">
+        {zh ? "Qwen 使用阿里云百炼新加坡服务；请配置与该地域匹配的 API Key。" : "Qwen uses Alibaba Cloud Model Studio in Singapore. Configure an API key for that region."}
+      </p> : null}
+      {draftProvider === "gemini" ? <p className="settings-section-explanation">
+        {zh ? "Gemini 使用 Google Gemini API；请配置该服务的 API Key。" : "Gemini uses the Google Gemini API. Configure an API key for that service."}
+      </p> : null}
     </div>
   );
 }

@@ -1097,6 +1097,7 @@ export const planningOwnerAuthorityPort = createPlanningOwnerAuthorityPort({
       request?.intent === "projectRestore" ||
       request?.intent === "ownerCreate" ||
       request?.intent === "ownerWrite" ||
+      (request?.intent === "ownerRestore" && (request.ownerType === "task" || request.ownerType === "routeNode")) ||
       request?.intent === "provisioningRead" ||
       request?.intent === "provisioningWrite" ||
       request?.intent === "metadataWrite"

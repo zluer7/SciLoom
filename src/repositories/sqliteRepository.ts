@@ -322,6 +322,7 @@ const booleanFields: Record<string, string[]> = {
   ],
   result_metrics: ["higherIsBetter"],
   result_items: ["isAsset"],
+  outputs: ["usableForPaper"],
   literatures: ["isArchived"],
   operation_logs: ["isRecoverable"],
   recycle_entries: ["canRestore"]

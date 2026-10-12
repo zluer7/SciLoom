@@ -83,23 +83,17 @@ export function ManagedRootSettingsPanel({
   const ready = snapshot?.readinessState === "READY";
 
   return (
-    <section className="settings-panel managed-root-settings" aria-labelledby="managed-root-settings-title">
-      <div className="managed-root-settings__heading">
-        <h3 id="managed-root-settings-title">{zh ? "本地工作目录" : "Local working directory"}</h3>
+    <section className="settings-data-row managed-root-settings" aria-labelledby="managed-root-settings-title">
+      <h3 className="settings-data-row__label" id="managed-root-settings-title">{zh ? "本地工作目录" : "Local working directory"}</h3>
+      <div className="settings-data-row__controls managed-root-settings__summary">
+        {configured && snapshot.configuredPath ? <code data-testid="managed-root-configured-path">{snapshot.configuredPath}</code> : null}
         <span className={ready ? "managed-root-status managed-root-status--ready" : "managed-root-status managed-root-status--warning"}>
-          {ready ? (zh ? "可用" : "Ready") : (zh ? "需要处理" : "Action needed")}
+          {loading ? (zh ? "检查中…" : "Checking…") : ready ? (zh ? "可用" : "Ready") : (zh ? "需要处理" : "Action needed")}
         </span>
       </div>
 
-      {configured && snapshot.configuredPath ? (
-        <div className="managed-root-settings__path">
-          <span>{zh ? "已配置路径" : "Configured path"}</span>
-          <code data-testid="managed-root-configured-path">{snapshot.configuredPath}</code>
-        </div>
-      ) : null}
-
       {snapshot?.errorCode ? (
-        <p className="managed-root-settings__notice" role={snapshot.durableState === "READ_FAILED" ? "alert" : undefined}>
+        <p className="settings-data-row__message managed-root-settings__notice" role={snapshot.durableState === "READ_FAILED" ? "alert" : undefined}>
           {snapshot.durableState === "NOT_CONFIGURED"
             ? (zh
                 ? "尚未配置本地工作目录。配置后才能创建和打开由 SciLoom 管理的文稿。"
@@ -115,7 +109,7 @@ export function ManagedRootSettingsPanel({
       ) : null}
 
       {snapshot?.durableState === "NOT_CONFIGURED" || (snapshot?.durableState === "CONFIGURED" && !ready) ? (
-        <div className="managed-root-settings__actions">
+        <div className="settings-data-row__message managed-root-settings__actions">
           {snapshot?.durableState === "NOT_CONFIGURED" ? (
             <button
               type="button"
@@ -143,22 +137,6 @@ export function ManagedRootSettingsPanel({
         </div>
       ) : null}
 
-      <details className="settings-technical-details">
-        <summary>{zh ? "详细信息" : "Details"}</summary>
-        <div className="settings-technical-details__body">
-          <p className="managed-root-settings__responsibility">
-            {zh
-              ? "SciLoom 将课题、任务、实验、文献等结构化信息保存在数据库中，便于快速查看、编辑和关联；需要长期保存和持续完善的文稿内容则存放在本地工作目录中，方便随时打开并继续编辑"
-              : "SciLoom stores structured project, task, experiment, and literature information in the database for quick viewing, editing, and linking; manuscript content that needs long-term preservation and continued refinement is stored in the local working directory so it can be opened and edited at any time"}
-          </p>
-        </div>
-      </details>
-
-      <p className="settings-section-explanation">
-        {zh
-          ? "结构化数据用于日常科研管理，本地工作目录用于保存和持续编辑文稿内容"
-          : "Structured data supports daily research management, while the local working directory stores manuscripts for continued editing"}
-      </p>
     </section>
   );
 }

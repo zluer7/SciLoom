@@ -765,63 +765,100 @@ mod tests {
 
     #[test]
     fn f3_4_v53_upgrade_and_fresh_v54_initialization_are_exact_and_idempotent() {
+        // Global bootstrap owns current/predecessor versions. v54 belongs only
+        // to the historical Review component, never to the global current gate.
+        let version = |connection: &Connection| -> i64 {
+            connection.query_row("PRAGMA user_version", [], |row| row.get(0)).unwrap()
+        };
+        let max_receipt = |connection: &Connection| -> i64 {
+            connection.query_row("SELECT MAX(version) FROM schema_migrations", [], |row| row.get(0)).unwrap()
+        };
+        let review_receipts = |connection: &Connection| -> i64 {
+            connection.query_row(
+                "SELECT COUNT(*) FROM schema_migrations WHERE version=?1 AND name='review_structured_state_canonical_authority'",
+                [REVIEW_STRUCTURED_STATE_SCHEMA_VERSION], |row| row.get(0),
+            ).unwrap()
+        };
+        let check_integrity = |connection: &Connection| {
+            assert_eq!(connection.query_row("PRAGMA integrity_check", [], |row| row.get::<_, String>(0)).unwrap(), "ok");
+            assert_eq!(connection.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| row.get::<_, i64>(0)).unwrap(), 0);
+        };
         let fresh = Connection::open_in_memory().expect("open fresh database");
-        schema::run_migrations(&fresh).expect("fresh migration chain");
-        assert_eq!(
-            fresh
-                .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
-                .unwrap(),
-            REVIEW_STRUCTURED_STATE_SCHEMA_VERSION
-        );
+        schema::run_migrations(&fresh).expect("fresh current global migration chain");
+        schema::run_migrations(&fresh).expect("idempotent current global chain");
+        assert_eq!(version(&fresh), schema::CURRENT_SCHEMA_VERSION);
+        assert_eq!(max_receipt(&fresh), schema::CURRENT_SCHEMA_VERSION);
         assert!(schema_is_current(&fresh).unwrap());
-        assert_eq!(
-            fresh
-                .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| row
-                    .get::<_, i64>(
-                    0
-                ))
-                .unwrap(),
-            REVIEW_STRUCTURED_STATE_SCHEMA_VERSION
-        );
-        assert_eq!(
-            fresh
-                .query_row("PRAGMA integrity_check", [], |row| row.get::<_, String>(0))
-                .unwrap(),
-            "ok"
-        );
-        assert_eq!(
-            fresh
-                .query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {
-                    row.get::<_, i64>(0)
-                })
-                .unwrap(),
-            0
-        );
+        assert_eq!(review_receipts(&fresh), 1);
+        check_integrity(&fresh);
 
-        fresh
-            .execute_batch(
-                "DROP TABLE review_structured_states;
-             DELETE FROM schema_migrations WHERE version=54;
-             PRAGMA user_version=53;",
-            )
-            .expect("construct exact v53 predecessor fixture");
-        assert!(!schema_is_current(&fresh).unwrap());
-        schema::run_migrations(&fresh).expect("exactly one v53 to v54 upgrade");
-        schema::run_migrations(&fresh).expect("idempotent current migration readback");
-        assert!(schema_is_current(&fresh).unwrap());
-        assert_eq!(
-            fresh
-                .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
-                .unwrap(),
-            REVIEW_STRUCTURED_STATE_SCHEMA_VERSION
-        );
-        assert_eq!(
-            fresh.query_row(
-                "SELECT COUNT(*) FROM schema_migrations WHERE version=54 AND name='review_structured_state_canonical_authority'",
-                [],
-                |row| row.get::<_, i64>(0),
-            ).unwrap(),
-            1
-        );
+        // Build a genuine admitted pre-Planning database using the existing API.
+        let mut predecessor = Connection::open_in_memory().unwrap();
+        schema::run_pre_planning_migrations(&predecessor).expect("existing admitted predecessor chain");
+        assert_eq!(version(&predecessor), schema::PRE_PLANNING_SCHEMA_VERSION);
+        let preserved = provision_in_connection(&mut predecessor, &seed("hr28-preserved", "custom", "保留 scientific content")).unwrap();
+        schema::run_migrations(&predecessor).expect("admitted predecessor to current global schema");
+        schema::run_migrations(&predecessor).expect("idempotent upgraded global schema");
+        assert_eq!(version(&predecessor), schema::CURRENT_SCHEMA_VERSION);
+        assert_eq!(max_receipt(&predecessor), schema::CURRENT_SCHEMA_VERSION);
+        assert_eq!(read_state_in_connection(&predecessor, "hr28-preserved").unwrap().unwrap(), preserved);
+        assert!(schema_is_current(&predecessor).unwrap());
+        assert_eq!(review_receipts(&predecessor), 1);
+        check_integrity(&predecessor);
+
+        // Isolated component fixture, deliberately not a supported global
+        // predecessor. No later schema tables are disguised as a v53 database.
+        let legacy = Connection::open_in_memory().unwrap();
+        legacy.execute_batch("CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);").unwrap();
+        legacy.execute("INSERT INTO schema_migrations(version,name) VALUES(?1,'TEST_ONLY component predecessor')", [REVIEW_STRUCTURED_STATE_SCHEMA_VERSION - 1]).unwrap();
+        legacy.pragma_update(None, "user_version", REVIEW_STRUCTURED_STATE_SCHEMA_VERSION - 1).unwrap();
+        assert!(!schema_is_current(&legacy).unwrap());
+        let error = schema::run_migrations(&legacy).expect_err("global bootstrap must reject historical v53");
+        assert_eq!(error.code, "source-version-unsupported");
+        assert_eq!(error.stage, "v59-predecessor-version");
+        assert_eq!(version(&legacy), REVIEW_STRUCTURED_STATE_SCHEMA_VERSION - 1);
+        assert_eq!(review_receipts(&legacy), 0);
+        assert!(!schema_is_current(&legacy).unwrap());
+
+        let migrate_component = |connection: &Connection| -> rusqlite::Result<()> {
+            let transaction = connection.unchecked_transaction()?;
+            apply_schema_migration(&transaction)?;
+            // The isolated fixture owns this historical version transition;
+            // the component API does not redefine the global migration policy.
+            transaction.pragma_update(None, "user_version", REVIEW_STRUCTURED_STATE_SCHEMA_VERSION)?;
+            transaction.commit()
+        };
+        migrate_component(&legacy).expect("one historical Review component upgrade");
+        assert!(schema_is_current(&legacy).unwrap());
+        legacy.execute_batch("INSERT INTO review_structured_states(review_id,review_type,descriptor_identity,outline_sections_json,structured_revision,created_at,updated_at) VALUES('hr28-component','custom','review/primary/custom/v1','[{\"key\":\"custom_summary\",\"content\":\"保留 Unicode\"}]',7,'created','updated');").unwrap();
+        let before = super::super::query_records(&legacy, "SELECT * FROM review_structured_states", &[]).unwrap();
+        migrate_component(&legacy).expect("idempotent historical component migration");
+        assert_eq!(super::super::query_records(&legacy, "SELECT * FROM review_structured_states", &[]).unwrap(), before);
+        assert_eq!(version(&legacy), REVIEW_STRUCTURED_STATE_SCHEMA_VERSION);
+        assert_eq!(max_receipt(&legacy), REVIEW_STRUCTURED_STATE_SCHEMA_VERSION);
+        assert_eq!(review_receipts(&legacy), 1);
+        assert!(schema_is_current(&legacy).unwrap());
+        assert!(legacy.execute_batch("INSERT INTO review_structured_states VALUES('bad-descriptor','custom','review/primary/stage/v1','[]',0,'c','u');").is_err());
+        assert!(legacy.execute_batch("INSERT INTO review_structured_states VALUES('bad-json','custom','review/primary/custom/v1','not-json',0,'c','u');").is_err());
+        assert_eq!(super::super::query_records(&legacy, "SELECT * FROM review_structured_states", &[]).unwrap(), before);
+        check_integrity(&legacy);
+
+        // A receipt failure must roll back both the newly created component
+        // table and its version/receipt in the same existing local transaction.
+        let blocked = Connection::open_in_memory().unwrap();
+        blocked.execute_batch(&format!(
+            "CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+             CREATE TRIGGER reject_review_receipt BEFORE INSERT ON schema_migrations WHEN NEW.version={} BEGIN SELECT RAISE(ABORT,'TEST_ONLY receipt failure'); END;",
+            REVIEW_STRUCTURED_STATE_SCHEMA_VERSION,
+        )).unwrap();
+        blocked.pragma_update(None, "user_version", REVIEW_STRUCTURED_STATE_SCHEMA_VERSION - 1).unwrap();
+        assert!(migrate_component(&blocked).unwrap_err().to_string().contains("TEST_ONLY receipt failure"));
+        assert_eq!(version(&blocked), REVIEW_STRUCTURED_STATE_SCHEMA_VERSION - 1);
+        assert_eq!(review_receipts(&blocked), 0);
+        assert!(!schema_is_current(&blocked).unwrap());
+        assert_eq!(blocked.query_row("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='review_structured_states'", [], |row| row.get::<_, i64>(0)).unwrap(), 0);
+        check_integrity(&blocked);
+        println!("HR28 readback: global fresh/current={} admitted predecessor={} component={} receipt=1 failed component rollback version={} receipt=0 table=0",
+            version(&fresh), schema::PRE_PLANNING_SCHEMA_VERSION, version(&legacy), version(&blocked));
     }
 }

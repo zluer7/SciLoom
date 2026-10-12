@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../../i18n/I18nProvider";
 import { buildAIContext } from "../../services/aiContextBuilderService";
 import { buildAIContextHumanReadablePreview } from "../../services/aiContextPreviewDisplayService";
+import { exportService } from "../../services/exportService";
 import {
   AI_RESEARCH_OBJECT_SELECTION_MAX,
   listAIResearchObjectsForProject
@@ -41,6 +42,8 @@ import type {
 } from "../../types/aiContext";
 import type { Project } from "../../types/planning";
 import type { AIChatLaunchIntent } from "./AIChatLaunchContext";
+import { ConversationHistoryPanel } from "./ConversationHistoryPanel";
+import { conversationLifecycle, manageAIConversation, type ConversationLifecycle, type ConversationManagementAction } from "../../services/aiConversationManagementService";
 import { AIActionDraftPanel } from "./AIActionDraftPanel";
 import { AIContextDiscardDialog } from "./AIContextDiscardDialog";
 import { AIContextPreviewPanel } from "./AIContextPreviewPanel";
@@ -55,7 +58,6 @@ import {
   AI_LAST_SELECTED_PROJECT_PREFERENCE_KEY,
   AI_RESEARCH_OBJECT_CATEGORIES,
   filterAIResearchObjectsByCategory,
-  groupAIConversationHistory,
   resolvePreferredAIProjectId,
   type AIResearchObjectCategory
 } from "./aiPanelProductizationModel";
@@ -175,10 +177,6 @@ function compactLine(value: string | undefined, maxChars: number): string | unde
   return chars.length <= maxChars ? normalized : `${chars.slice(0, maxChars - 1).join("")}…`;
 }
 
-function conversationTitle(summary: AIConversationSummary): string {
-  return compactLine(summary.firstUserMessage, 52) ?? "新对话";
-}
-
 function hasCanonicalMaterialFreshnessReceipt(candidate: AISelectableFileRef): boolean {
   const receipt = candidate.materialFreshnessReceipt;
   return Boolean(
@@ -272,6 +270,7 @@ export function GlobalAIChatPanel({
   const [defaultContextMarkdown, setDefaultContextMarkdown] = useState("");
   const [isContextModified, setIsContextModified] = useState(false);
   const [contextEditorDirty, setContextEditorDirty] = useState(false);
+  const [isExportingContext, setIsExportingContext] = useState(false);
   const [workspaceDiscardWarningOpen, setWorkspaceDiscardWarningOpen] = useState(false);
   const [error, setError] = useState<PanelError | null>(null);
   const [isBuilding, setIsBuilding] = useState(false);
@@ -281,6 +280,7 @@ export function GlobalAIChatPanel({
   const [activeStreamReady, setActiveStreamReady] = useState(false);
   const [activeActionIntent, setActiveActionIntent] =
     useState<AIChatRetryRegenerateActionIntent | null>(null);
+  const providerConfigurationGeneration = useRef(0);
   const [providerConfiguration, setProviderConfiguration] =
     useState<AIProviderConfigurationStatus | null>(null);
   const [selectableFileRefs, setSelectableFileRefs] = useState<AISelectableFileRef[]>([]);
@@ -310,7 +310,12 @@ export function GlobalAIChatPanel({
   const [activeWorkspace, setActiveWorkspace] = useState<AIPanelWorkspace>("chat");
   const [operationsMode, setOperationsMode] = useState<AIOperationsMode>("standard-results");
   const [researcherNickname, setResearcherNickname] = useState("");
-  const [historySearch, setHistorySearch] = useState("");
+  const [historyView, setHistoryView] = useState<ConversationLifecycle>("ACTIVE");
+  const [isManagingConversation, setIsManagingConversation] = useState(false);
+  const conversationManagementInFlightRef = useRef(false);
+  const conversationPanelMountedRef = useRef(true);
+  const conversationSummaryGenerationRef = useRef(0);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [activeResearchObjectCategory, setActiveResearchObjectCategory] =
     useState<AIResearchObjectCategory>("route");
   const [activeInvocationPurpose, setActiveInvocationPurpose] =
@@ -399,7 +404,8 @@ export function GlobalAIChatPanel({
   );
   const nonStandardResultBusy = isBuilding || isSending || isCreatingConversation || isLoadingConversations ||
     isGeneratingActionDraft || isPreparingParseDraft || Boolean(decidingContextRequestId);
-  const isBusy = nonStandardResultBusy || Boolean(activeStandardResultMutation);
+  const selectedConversationReadonly = Boolean(conversationReadback && conversationLifecycle(conversationReadback.conversation) !== "ACTIVE");
+  const isBusy = nonStandardResultBusy || Boolean(activeStandardResultMutation) || isManagingConversation || selectedConversationReadonly;
   const promptIsCurrentNormalQA = Boolean(
     promptPackage && selectedConversationId && promptConversationId === selectedConversationId &&
     promptPackage.constraintDescriptor.category === "NORMAL_QA" &&
@@ -479,15 +485,6 @@ export function GlobalAIChatPanel({
   const displayedPromptPackage = contextRequestApprovalReview?.review.promptPackage ?? promptPackage;
   const displayedContextMarkdown = contextRequestApprovalReview?.review.promptPackage.contextMarkdown ?? contextMarkdown;
   const reviewedContextRequestId = contextRequestApprovalReview?.review.contextRequestId;
-  const normalizedHistorySearch = historySearch.trim().toLocaleLowerCase();
-  const filteredConversationSummaries = normalizedHistorySearch
-    ? conversationSummaries.filter((summary) => (
-        `${conversationTitle(summary)} ${summary.latestMessage ?? ""}`
-          .toLocaleLowerCase()
-          .includes(normalizedHistorySearch)
-      ))
-    : conversationSummaries;
-  const conversationHistoryGroups = groupAIConversationHistory(filteredConversationSummaries);
   const activeCategoryResearchObjects = filterAIResearchObjectsByCategory(
     researchObjectOptions,
     activeResearchObjectCategory
@@ -542,18 +539,27 @@ export function GlobalAIChatPanel({
   }, [contextRequestApprovalReview]);
 
   const refreshConversationSummaries = useCallback(async () => {
-    const summaries = await aiConversationApplicationService.listConversations();
-    setConversationSummaries(summaries);
-    return summaries;
+    const generation = ++conversationSummaryGenerationRef.current;
+    try {
+      const summaries = await aiConversationApplicationService.listConversations();
+      if (conversationPanelMountedRef.current && generation === conversationSummaryGenerationRef.current) {
+        setConversationSummaries(summaries); setHistoryError(null);
+      }
+      return summaries;
+    } catch (error) {
+      if (conversationPanelMountedRef.current && generation === conversationSummaryGenerationRef.current) setHistoryError("暂时无法刷新对话历史，请重试。");
+      throw error;
+    }
   }, []);
 
   const refreshProviderConfiguration = useCallback(async () => {
+    const generation = ++providerConfigurationGeneration.current;
     try {
       const status = await getAIProviderConfigurationStatus();
-      setProviderConfiguration(status);
+      if (conversationPanelMountedRef.current && generation === providerConfigurationGeneration.current) setProviderConfiguration(status);
       return status;
     } catch {
-      setProviderConfiguration(null);
+      if (conversationPanelMountedRef.current && generation === providerConfigurationGeneration.current) setProviderConfiguration(null);
       return null;
     }
   }, []);
@@ -577,6 +583,7 @@ export function GlobalAIChatPanel({
           conversationSelectionIntentRef.current !== expectedSelectionIntent)
       ) return null;
       if (readback.conversation.id !== conversationId) throw new Error("Conversation identity mismatch.");
+      if (readback.conversation.trashedAt) throw new Error("Conversation is in Trash.");
       selectedConversationIdRef.current = conversationId;
       setSelectedConversationId(conversationId);
       setConversationReadback(readback);
@@ -828,19 +835,25 @@ export function GlobalAIChatPanel({
       .then(async (summaries) => {
         if (cancelled) return;
         setConversationSummaries(summaries);
-        if (summaries[0]) await openConversation(summaries[0].id);
+        const firstActive = summaries.find(row => conversationLifecycle(row) === "ACTIVE");
+        if (firstActive) await openConversation(firstActive.id);
         else setIsLoadingConversations(false);
       })
       .catch(() => {
         if (!cancelled) {
-      setError({ title: "对话历史暂不可用", message: "暂时无法读取对话历史。" });
+          setError({ title: "对话历史暂不可用", message: "暂时无法读取对话历史。" });
+          setHistoryError("暂时无法读取对话历史，请刷新重试。");
           setIsLoadingConversations(false);
         }
       });
     return () => { cancelled = true; };
   }, [openConversation]);
 
-  useEffect(() => () => {
+  useEffect(() => {
+    conversationPanelMountedRef.current = true;
+    return () => {
+    conversationPanelMountedRef.current = false;
+    conversationSummaryGenerationRef.current += 1;
     streamGenerationRef.current += 1;
     conversationLoadGenerationRef.current += 1;
     conversationSelectionIntentRef.current += 1;
@@ -848,6 +861,7 @@ export function GlobalAIChatPanel({
     const active = activeSendRef.current;
     activeSendRef.current = null;
     if (active) void active.cancel().catch(() => undefined);
+    };
   }, []);
 
   function invalidatePreview() {
@@ -870,7 +884,7 @@ export function GlobalAIChatPanel({
   }
 
   async function handleCreateAndSelectConversation() {
-    if (isSending || activeDraftGenerationRef.current || createInFlightRef.current) return;
+    if (isSending || activeDraftGenerationRef.current || createInFlightRef.current || conversationManagementInFlightRef.current) return;
     const selectionIntent = conversationSelectionIntentRef.current + 1;
     conversationSelectionIntentRef.current = selectionIntent;
     const preserveLaunchDraft = selectedConversationIdRef.current === null && Boolean(composerDraftSeed);
@@ -885,6 +899,7 @@ export function GlobalAIChatPanel({
       const conversation = await aiConversationApplicationService.createConversation();
       const readback = await openConversation(conversation.id, selectionIntent);
       if (readback) {
+        setHistoryView("ACTIVE");
         invalidatePreview();
         setActiveWorkspace("chat");
         if (!preserveLaunchDraft) {
@@ -919,7 +934,7 @@ export function GlobalAIChatPanel({
   }
 
   async function handleSelectConversation(conversationId: string) {
-    if (isSending || activeDraftGenerationRef.current || conversationId === selectedConversationId) return;
+    if (isSending || activeDraftGenerationRef.current || conversationManagementInFlightRef.current || conversationId === selectedConversationId) return;
     const selectionIntent = conversationSelectionIntentRef.current + 1;
     conversationSelectionIntentRef.current = selectionIntent;
     setSelectedAttachmentIds([]);
@@ -963,6 +978,68 @@ export function GlobalAIChatPanel({
         setError({ title: "对话暂不可用", message: "暂时无法打开所选对话。" });
       }
     }
+  }
+
+  async function handleManageConversation(row: AIConversationSummary, action: ConversationManagementAction, options?: { title?: string; confirmed?: boolean }) {
+    if (conversationManagementInFlightRef.current || nonStandardResultBusy || activeStandardResultMutation) throw new Error("CONVERSATION_BUSY");
+    const selected = selectedConversationIdRef.current === row.id;
+    if (selected && action !== "rename" && (contextEditorDirty || userQuestion.trim())) throw new Error("CONVERSATION_UNSAVED_DRAFT");
+    conversationManagementInFlightRef.current = true;
+    conversationSummaryGenerationRef.current += 1;
+    setIsManagingConversation(true);
+    try {
+      const receipt = await manageAIConversation(row, action, options);
+      if (!conversationPanelMountedRef.current) return;
+      // Apply only the canonical acknowledgment; failed/unknown IPC never changes local ownership.
+      const next = action === "permanentDelete" ? conversationSummaries.filter(item => item.id !== row.id)
+        : conversationSummaries.map(item => item.id === row.id ? { ...item, ...receipt } : item);
+      setConversationSummaries(next);
+      if (selected && action !== "rename") {
+        conversationSelectionIntentRef.current += 1;
+        conversationLoadGenerationRef.current += 1;
+        selectedConversationIdRef.current = null;
+        setSelectedConversationId(null); setConversationReadback(null);
+        invalidatePreview(); setSelectedAttachmentIds([]); clearOneShotLocalAttachment();
+        setIncludeAssociatedDocuments(false); setAttachmentSelectorOpen(false);
+        setScopeSelection(""); setProjectId(""); clearSelectedResearchObjects();
+        setUserQuestion(""); setComposerDraftSeed(undefined); setActiveWorkspace("chat");
+        // Keep a coherent active selection, or an empty workspace. Never select a trashed owner.
+        const fallback = next.find(item => conversationLifecycle(item) === "ACTIVE");
+        if (fallback) {
+          try { await openConversation(fallback.id, conversationSelectionIntentRef.current); }
+          catch { setError({ title: "对话暂不可用", message: "管理操作已完成，但下一对话暂时无法打开。" }); }
+        }
+      } else if (selected) {
+        setConversationReadback(current => current ? { ...current, conversation: { ...current.conversation, ...receipt } } : current);
+      }
+      try { await refreshConversationSummaries(); }
+      catch { setError({ title: "历史刷新失败", message: "管理操作已完成，请刷新历史查看最新状态。" }); }
+    } finally {
+      conversationManagementInFlightRef.current = false;
+      if (conversationPanelMountedRef.current) setIsManagingConversation(false);
+    }
+  }
+
+  async function handleRefreshConversationHistory() {
+    if (nonStandardResultBusy || activeStandardResultMutation || conversationManagementInFlightRef.current) return;
+    conversationManagementInFlightRef.current = true; setIsManagingConversation(true);
+    try {
+      const rows = await refreshConversationSummaries();
+      if (!conversationPanelMountedRef.current) return;
+      const selected = rows.find(row => row.id === selectedConversationIdRef.current);
+      if (selected && conversationLifecycle(selected) !== "TRASHED") {
+        setConversationReadback(current => current ? { ...current, conversation: { ...current.conversation, title: selected.title, archivedAt: selected.archivedAt, trashedAt: selected.trashedAt, revision: selected.revision } } : current);
+      } else {
+        conversationSelectionIntentRef.current += 1; conversationLoadGenerationRef.current += 1;
+        selectedConversationIdRef.current = null; setSelectedConversationId(null); setConversationReadback(null);
+        invalidatePreview(); setSelectedAttachmentIds([]); clearOneShotLocalAttachment();
+        setIncludeAssociatedDocuments(false); setAttachmentSelectorOpen(false);
+        setScopeSelection(""); setProjectId(""); clearSelectedResearchObjects();
+        setUserQuestion(""); setComposerDraftSeed(undefined);
+        const fallback = rows.find(row => conversationLifecycle(row) === "ACTIVE");
+        if (fallback) await openConversation(fallback.id, conversationSelectionIntentRef.current);
+      }
+    } finally { conversationManagementInFlightRef.current = false; if (conversationPanelMountedRef.current) setIsManagingConversation(false); }
   }
 
   function handleScopeChange(value: string) {
@@ -1336,6 +1413,20 @@ export function GlobalAIChatPanel({
       setError({ title: t("aiPromptBuildFailed"), message: t("aiPromptBuildFailedMessage") });
     } finally {
       setIsBuilding(false);
+    }
+  }
+
+  async function handleExportContextMarkdown(currentMarkdown: string) {
+    setIsExportingContext(true);
+    try {
+      await exportService.exportMarkdownText(currentMarkdown);
+    } catch (exportError) {
+      setError({
+        title: "导出失败",
+        message: exportError instanceof Error ? exportError.message : "无法保存 Markdown 文件。"
+      });
+    } finally {
+      setIsExportingContext(false);
     }
   }
 
@@ -2937,50 +3028,17 @@ export function GlobalAIChatPanel({
       </header>
 
       <div className="global-ai-chat-panel__body">
-        <section className="global-ai-chat-panel__sidebar" aria-label="AI模型与对话管理">
-          <section className="global-ai-chat-panel__model-card">
-            <div className="global-ai-chat-panel__model-card-heading">
-              <h3>AI模型</h3>
-              <button
-                className="global-ai-chat-panel__settings-link"
-                onClick={() => { onClose("settings"); }}
-                type="button"
-              >
-                设置
-              </button>
-            </div>
-            <dl className="global-ai-chat-panel__status-list">
-              <div>
-                <dt>服务提供方</dt>
-                <dd>{providerConfiguration?.provider ?? "不可用"}</dd>
-              </div>
-              <div>
-                <dt>模型</dt>
-                <dd>{providerConfiguration?.model ?? "不可用"}</dd>
-              </div>
-            </dl>
-          </section>
-
+        <section className="global-ai-chat-panel__sidebar" aria-label={language === "zh-CN" ? "对话管理" : "Conversation management"}>
           <section className="global-ai-chat-panel__core-controls">
-            <button
-              className="global-ai-chat-panel__new-conversation"
-              data-first-use-action="create-conversation"
-              disabled={isSending || isCreatingConversation || isGeneratingActionDraft}
-              onClick={handleCreateAndSelectConversation}
-              type="button"
-            >
-              <span aria-hidden="true">＋</span>
-              {isCreatingConversation ? "创建中…" : "新建对话"}
-            </button>
             <label className="global-ai-chat-panel__field" htmlFor="global-ai-project-scope">
-              当前课题
+              {language === "zh-CN" ? "当前课题" : "Current project"}
               <select
                 id="global-ai-project-scope"
                 value={scopeSelection}
                 onChange={(event) => handleScopeChange(event.target.value)}
                 disabled={isBusy}
               >
-                <option value="">{isLoadingProjects ? "课题加载中…" : "选择课题"}</option>
+                <option value="">{isLoadingProjects ? (language === "zh-CN" ? "课题加载中…" : "Loading projects…") : (language === "zh-CN" ? "选择课题" : "Select project")}</option>
                 {projects.map((project) => (
                   <option key={project.id} value={project.id}>{project.title}</option>
                 ))}
@@ -2991,64 +3049,40 @@ export function GlobalAIChatPanel({
               <p className="global-ai-chat-panel__field-note">{t("aiProjectsLoadFailed")}</p>
             ) : null}
             <label className="global-ai-chat-panel__field" htmlFor="global-ai-output-detail">
-              AI回答详细程度
+              {language === "zh-CN" ? "AI回答详细程度" : "AI response detail"}
               <select
                 id="global-ai-output-detail"
                 value={outputDetailPreference}
                 onChange={(event) => handleOutputDetailPreferenceChange(event.target.value as AIOutputDetailPreference)}
                 disabled={isBusy}
               >
-                <option value="CONCISE">简洁</option>
-                <option value="STANDARD">标准</option>
-                <option value="DETAILED">详细</option>
-                <option value="UNRESTRICTED">充分展开</option>
+                <option value="CONCISE">{language === "zh-CN" ? "简洁" : "Concise"}</option>
+                <option value="STANDARD">{language === "zh-CN" ? "标准" : "Standard"}</option>
+                <option value="DETAILED">{language === "zh-CN" ? "详细" : "Detailed"}</option>
+                <option value="UNRESTRICTED">{language === "zh-CN" ? "充分展开" : "Expanded"}</option>
               </select>
             </label>
+            <button
+              className="global-ai-chat-panel__new-conversation"
+              data-first-use-action="create-conversation"
+              disabled={isSending || isCreatingConversation || isGeneratingActionDraft}
+              onClick={handleCreateAndSelectConversation}
+              type="button"
+            >
+              <span aria-hidden="true">＋</span>
+              {isCreatingConversation ? (language === "zh-CN" ? "创建中…" : "Creating…") : (language === "zh-CN" ? "新建对话" : "New conversation")}
+            </button>
           </section>
 
-          <section className="global-ai-chat-panel__history">
-            <div className="global-ai-chat-panel__section-heading">
-              <h3>对话历史</h3>
-              <span>{conversationSummaries.length}</span>
-            </div>
-            <label className="global-ai-chat-panel__history-search">
-              <span className="global-ai-chat-panel__sr-only">搜索对话</span>
-              <input
-                aria-label="搜索对话历史"
-                onChange={(event) => setHistorySearch(event.target.value)}
-                placeholder="搜索对话"
-                type="search"
-                value={historySearch}
-              />
-            </label>
-            <nav aria-label="对话历史" className="global-ai-chat-panel__history-list">
-              {conversationHistoryGroups.map((group) => (
-                <section className="global-ai-chat-panel__history-group" key={group.id}>
-                  <h4>{group.label}</h4>
-                  {group.conversations.map((summary) => (
-                    <button
-                      aria-current={summary.id === selectedConversationId ? "page" : undefined}
-                      className={summary.id === selectedConversationId ? "is-active" : ""}
-                      data-conversation-id={summary.id}
-                      disabled={isSending || isGeneratingActionDraft}
-                      key={summary.id}
-                      onClick={() => { void handleSelectConversation(summary.id); }}
-                      type="button"
-                    >
-                      <strong>{conversationTitle(summary)}</strong>
-                      <small>{summary.updatedAt.slice(0, 16).replace("T", " ")}</small>
-                    </button>
-                  ))}
-                </section>
-              ))}
-              {!isLoadingConversations && filteredConversationSummaries.length === 0 ? (
-                <p>{conversationSummaries.length === 0 ? "新建第一个对话以开始。" : "没有匹配的对话。"}</p>
-              ) : null}
-            </nav>
-          </section>
+          <ConversationHistoryPanel summaries={conversationSummaries} selectedId={selectedConversationId}
+            view={historyView} onViewChange={setHistoryView} loading={isLoadingConversations}
+            error={historyError} onRefresh={handleRefreshConversationHistory}
+            busy={nonStandardResultBusy || Boolean(activeStandardResultMutation) || isManagingConversation}
+            onSelect={id => { void handleSelectConversation(id); }} onManage={handleManageConversation} />
         </section>
 
         <section className="global-ai-chat-panel__main">
+          {selectedConversationReadonly ? <p role="status">{language === "zh-CN" ? "此对话已归档，只读查看。取消归档后可继续。" : "This conversation is archived and read-only. Unarchive to continue."}</p> : null}
 
           <section
             aria-label="聊天工作区"
@@ -3102,7 +3136,7 @@ export function GlobalAIChatPanel({
                 isStopping={isStopping}
                 composerDisabled={Boolean(
                   !selectedConversationId || isCreatingConversation || isLoadingConversations ||
-                  isGeneratingActionDraft || isPreparingParseDraft
+                  isGeneratingActionDraft || isPreparingParseDraft || isManagingConversation || selectedConversationReadonly
                 )}
                 sendDisabled={!canReachSendConfigurationBoundary}
                 sendGateCode={sendReviewGateCode}
@@ -3285,7 +3319,7 @@ export function GlobalAIChatPanel({
                       ? displayedContextMarkdown
                       : defaultContextMarkdown}
                     isContextModified={contextRequestApprovalReview ? false : isContextModified}
-                    disabled={isBusy}
+                    disabled={isBusy || isExportingContext}
                     editingDisabled={Boolean(contextRequestApprovalReview)}
                     mode={activeWorkspace === "context-edit" ? "edit" : "view"}
                     onDirtyChange={setContextEditorDirty}
@@ -3302,6 +3336,7 @@ export function GlobalAIChatPanel({
                       setContextEditorDirty(false);
                       void rebuildPromptWithContext(value);
                     }}
+                    onExport={(value) => { void handleExportContextMarkdown(value); }}
                     onCancelEdit={() => {
                       setContextEditorDirty(false);
                       setActiveWorkspace("context-preview");
@@ -3491,7 +3526,7 @@ export function GlobalAIChatPanel({
                   <AIParseDraftPanel
                     terminal={parseDraftTerminal}
                     results={displayedStandardResults}
-                    disabled={nonStandardResultBusy}
+                    disabled={nonStandardResultBusy || isManagingConversation || selectedConversationReadonly}
                     activeMutationResultId={activeStandardResultMutation?.resultId}
                     projectNameById={projectNameById}
                     objectNameByKey={objectNameByKey}

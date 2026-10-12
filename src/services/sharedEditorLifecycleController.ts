@@ -375,13 +375,13 @@ export function createSharedEditorLifecycleController(
     if (!sequence || sequence.id !== sequenceId) return { status: "stale" };
     while (sequence.cursor < sequence.identities.length) {
       const identity = sequence.identities[sequence.cursor];
-      const live = dependencies.listSessions().find((session) =>
-        sameIdentity(identity, identityFromSession(session))
-      ) ?? [...participants.values()]
+      const live = [...participants.values()]
         .map((participant) => participantCurrent(participant)?.session)
         .find((session) => Boolean(
           session && sameIdentity(identity, identityFromSession(session))
-        ));
+        )) ?? dependencies.listSessions().find((session) =>
+          sameIdentity(identity, identityFromSession(session))
+        );
       if (!live || !live.dirty) {
         sequence.cursor += 1;
         continue;

@@ -11,6 +11,7 @@ import { SaveAsD2ContainmentNotice } from "../components/common/SaveAsD2Containm
 import { installQuickAnalysisFeedbackOwner } from "../services/quickAnalysisFeedbackService";
 import { BusinessOperationToastHost } from "../components/feedback/BusinessOperationToastHost";
 import { FirstLaunchWorkspaceGate } from "../components/FirstLaunchWorkspaceGate";
+import { AppearanceProvider } from "../components/layout/AppearanceProvider";
 
 function ReadyApp() {
   const routeElements = useRoutes(routes);
@@ -41,9 +42,11 @@ function ReadyApp() {
 export function App() {
   return (
     <I18nProvider>
-      <FirstLaunchWorkspaceGate>
-        <ReadyApp />
-      </FirstLaunchWorkspaceGate>
+      <AppearanceProvider>
+        <FirstLaunchWorkspaceGate>
+          <ReadyApp />
+        </FirstLaunchWorkspaceGate>
+      </AppearanceProvider>
     </I18nProvider>
   );
 }

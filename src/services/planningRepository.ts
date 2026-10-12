@@ -40,7 +40,7 @@ import {
 } from "./reviewTargetEntityLinkService";
 import type { ExperimentManuscriptOwnerType } from "../types/experimentManuscript";
 import { tryAcquireExperimentManuscriptOwnerOperation } from "./experimentManuscriptOwnerOperationGate";
-import { authorityWriterGuard } from "./authorityWriterGuard";
+import { authorityWriterGuard, AuthorityWriterGuardError } from "./authorityWriterGuard";
 import {
   validatePlanningAuthorityCommitPermit,
   type PlanningAuthorityEnvelopeView,
@@ -48,13 +48,13 @@ import {
   type ValidatedPlanningAuthorityHandle
 } from "./planningOwnerAuthorityPort";
 import {
-  createPlanningRepositoryEnvelopeStore,
   createWebCryptoRepositoryEpoch,
   PlanningRepositoryEnvelopeError,
   type PlanningRepositoryEnvelope,
   type PlanningRepositoryIdentity,
   type PlanningRepositoryWriterSession
 } from "./planningRepositoryEnvelope";
+import { createPlanningSQLitePersistence } from "./planningSQLitePersistence";
 import type {
   PersistedReviewPermanentDeleteTarget,
   ReviewPermanentDeleteActionRecord
@@ -595,24 +595,33 @@ function isPlanningDataSnapshot(value: unknown): value is PlanningPersistenceDat
 }
 
 const planningRepositoryEnvelopeStore =
-  createPlanningRepositoryEnvelopeStore<PlanningPersistenceData>({
+  createPlanningSQLitePersistence<PlanningPersistenceData>({
     storageKey: PLANNING_STORAGE_KEY,
-    getStorage() {
+    readSource() {
       if (
         typeof window === "undefined" ||
         typeof window.localStorage === "undefined"
       ) {
-        return undefined;
+        throw new Error("PLANNING_NATIVE_SOURCE_UNAVAILABLE");
       }
-      return window.localStorage;
+      return window.localStorage.getItem(PLANNING_STORAGE_KEY);
     },
     async createInitialSnapshot() {
       return normalizePlanningPersistenceData(await initializeEmptyPlanningData());
     },
     normalizeSnapshot: normalizePlanningPersistenceData,
-    isSnapshot: isPlanningDataSnapshot,
+    async prepareSource(snapshot) {
+      if (!isPlanningDataSnapshot(snapshot)) throw new Error("PLANNING_SOURCE_UNSUPPORTED");
+      const seeds = legacyReviewStructuredSeeds(snapshot);
+      if (seeds.length) await migrateLegacyReviewStructuredStates(seeds);
+      return { ...snapshot, reviews: snapshot.reviews.map(stripReviewSecondLayerFields) };
+    },
     createRepositoryEpoch: createWebCryptoRepositoryEpoch
   });
+
+export async function bootstrapPlanningSQLitePersistence() {
+  await planningRepositoryEnvelopeStore.bootstrap();
+}
 
 export function activatePlanningRepositoryProducerWriter(
   session: PlanningRepositoryWriterSession
@@ -1550,6 +1559,33 @@ export async function updateRouteNode(
   return updated;
 }
 
+/** Bounded archive restoration; never accepts a business patch or resurrects deletion. */
+export async function restoreRouteNode(
+  routeNodeId: EntityId,
+  status: RouteNode["status"] = "planned"
+): Promise<RouteNode | undefined> {
+  if (!["planned", "active", "completed", "paused", "adjusted"].includes(status)) {
+    throw new AuthorityWriterGuardError("NotWritable", "PLANNING_ROUTE_RESTORE_STATUS_INVALID");
+  }
+  let restored: RouteNode | undefined;
+  await authorityWriterGuard.run({
+    request: { intent: "ownerRestore", requestId: `planning-route-restore-${routeNodeId}`, ownerType: "routeNode", ownerId: routeNodeId, scope: "primary" },
+    invalidation: { domain: "planning", ownerType: "routeNode", ownerId: routeNodeId, scope: "primary" },
+    write: (_permit, context) => commitPlanningSnapshot(context, (data) => {
+      const route = data.routeNodes.find((item) => item.id === routeNodeId);
+      if (!route) throw new AuthorityWriterGuardError("NotFound", "PLANNING_AUTHORITY_OWNER_NOT_FOUND");
+      if (route.deletedAt) throw new AuthorityWriterGuardError("Deleted", "PLANNING_AUTHORITY_OWNER_DELETED");
+      if (!route.archivedAt && route.status !== "archived" && route.captureState !== "archived") {
+        throw new AuthorityWriterGuardError("NotWritable", "PLANNING_ROUTE_NOT_ARCHIVED");
+      }
+      const [routeNodes, item] = updateEntity(data.routeNodes, routeNodeId, { status, captureState: "pending", archivedAt: undefined });
+      restored = item;
+      return appendChangeLog({ ...data, routeNodes }, "routeNode", routeNodeId, "updated");
+    })
+  });
+  return restored;
+}
+
 export async function createRouteCheckpoint(
   input: RouteCheckpointCreateInput
 ): Promise<RouteCheckpoint> {
@@ -2078,11 +2114,78 @@ export async function completeTask(taskId: EntityId): Promise<Task | undefined> 
   });
 }
 
-export async function archiveTask(taskId: EntityId): Promise<Task | undefined> {
-  return updateTask(taskId, {
-    status: "archived",
-    archivedAt: now()
+export async function archiveTask(taskId: EntityId, note?: string): Promise<Task | undefined> {
+  let archived: Task | undefined;
+  await authorityWriterGuard.run({
+    request: { intent: "ownerWrite", requestId: `planning-task-archive-${taskId}`, ownerType: "task", ownerId: taskId, scope: "primary" },
+    invalidation: { domain: "planning", ownerType: "task", ownerId: taskId, scope: "primary" },
+    write: (_permit, context) => commitPlanningSnapshot(context, (data) => {
+      const existing = data.tasks.find((task) => task.id === taskId && !task.deletedAt);
+      if (!existing) throw new AuthorityWriterGuardError("NotFound", "PLANNING_AUTHORITY_OWNER_NOT_FOUND");
+      const [tasks, item] = updateEntity(data.tasks, taskId, {
+        status: "archived", archivedAt: now(),
+        ...(note ? { customFields: { ...(existing.customFields ?? {}), archiveNote: note } } : {})
+      });
+      archived = item;
+      return appendChangeLog({ ...data, tasks }, "task", taskId, "updated");
+    })
   });
+  return archived;
+}
+
+/** Restore the canonical archived Task; the lifecycle permit never accepts a patch. */
+export async function restoreTask(
+  taskId: EntityId,
+  status: Task["status"] = "todo"
+): Promise<Task | undefined> {
+  if (!["todo", "doing", "done", "delayed", "blocked", "cancelled"].includes(status)) {
+    throw new AuthorityWriterGuardError("NotWritable", "PLANNING_TASK_RESTORE_STATUS_INVALID");
+  }
+  let restored: Task | undefined;
+  await authorityWriterGuard.run({
+    request: {
+      intent: "ownerRestore",
+      requestId: `planning-task-restore-${taskId}`,
+      ownerType: "task",
+      ownerId: taskId,
+      scope: "primary"
+    },
+    invalidation: {
+      domain: "planning",
+      ownerType: "task",
+      ownerId: taskId,
+      scope: "primary"
+    },
+    write: (_permit, context) => commitPlanningSnapshot(context, (data) => {
+      const task = data.tasks.find((item) => item.id === taskId);
+      if (!task) {
+        throw new AuthorityWriterGuardError("NotFound", "PLANNING_AUTHORITY_OWNER_NOT_FOUND");
+      }
+      if (task.deletedAt) {
+        throw new AuthorityWriterGuardError("Deleted", "PLANNING_AUTHORITY_OWNER_DELETED");
+      }
+      if (!task.archivedAt && task.status !== "archived" && task.captureState !== "archived") {
+        throw new AuthorityWriterGuardError("NotWritable", "PLANNING_TASK_NOT_ARCHIVED");
+      }
+      if (task.routeNodeId) {
+        const route = data.routeNodes.find((item) => item.id === task.routeNodeId && !item.deletedAt);
+        if (!route) {
+          throw new AuthorityWriterGuardError("NotFound", "PLANNING_TASK_ROUTE_NOT_FOUND");
+        }
+        if (route.projectId !== task.projectId) {
+          throw new AuthorityWriterGuardError("OwnerProjectMismatch", "PLANNING_TASK_ROUTE_PROJECT_MISMATCH");
+        }
+      }
+      const [tasks, item] = updateEntity(data.tasks, taskId, {
+        status,
+        captureState: "pending",
+        archivedAt: undefined
+      });
+      restored = item;
+      return appendChangeLog({ ...data, tasks }, "task", taskId, "updated");
+    })
+  });
+  return restored;
 }
 
 export async function deleteTask(taskId: EntityId): Promise<boolean> {

@@ -18,6 +18,7 @@ import { outputService } from "./outputService";
 import { getPlanningFirstLayerData } from "./planningRepository";
 import { planningService, type ReviewTargetSummary } from "./planningService";
 import { resultMetricService } from "./resultMetricService";
+import { reviewFileRefService } from "./reviewFileRefService";
 
 export type ReviewObjectSummaryType =
   | "project"
@@ -640,6 +641,24 @@ export function buildReviewDetailContextFromData(input: BuildReviewDetailContext
 }
 
 export async function getReviewDetailContext(reviewId: EntityId): Promise<ReviewDetailContext | undefined> {
+  return readReviewDetailContext(reviewId);
+}
+
+/** One selection/refresh only; never retain targets across owners or requests. */
+export async function loadReviewSelectedDetail(reviewId: EntityId) {
+  const targets = planningService.queryReviewTargets(reviewId);
+  return Promise.all([
+    targets,
+    reviewFileRefService.queryReviewFileRefPathMaterialSummaries(reviewId),
+    reviewFileRefService.queryReviewFileRefs(reviewId),
+    readReviewDetailContext(reviewId, targets)
+  ]);
+}
+
+async function readReviewDetailContext(
+  reviewId: EntityId,
+  targets?: Promise<ReviewTargetSummary[]>
+): Promise<ReviewDetailContext | undefined> {
   const review = await planningService.getReviewById(reviewId);
   if (!review) {
     return undefined;
@@ -658,7 +677,7 @@ export async function getReviewDetailContext(reviewId: EntityId): Promise<Review
     outputCandidates,
     outputs
   ] = await Promise.all([
-    planningService.queryReviewTargets(reviewId),
+    targets ?? planningService.queryReviewTargets(reviewId),
     experimentService.getExperiments(),
     experimentRunService.list(),
     literatureService.queryLiteratures({ includeArchived: true }),

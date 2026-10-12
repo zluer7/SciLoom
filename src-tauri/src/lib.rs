@@ -23,6 +23,7 @@ mod physical_freshness;
 mod planning_authority_transport;
 mod provisioning;
 mod provisioning_mainline;
+mod runtime_paths;
 #[allow(dead_code)]
 mod provisioning_runtime;
 #[allow(dead_code)]
@@ -112,17 +113,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(move |app| {
-            #[cfg(target_os = "windows")]
-            {
-                let main_window = app.get_webview_window("main").ok_or_else(|| {
-                    std::io::Error::other("SciLoom main window was not created")
-                })?;
-                let icon_handles = windows_app_icon::install(&main_window).map_err(|error| {
-                    eprintln!("SciLoom Windows icon initialization failed: {error}");
-                    std::io::Error::other(error)
-                })?;
-                app.manage(icon_handles);
-            }
+            let paths = runtime_paths::RuntimePaths::resolve(app.handle())
+                .map_err(std::io::Error::other)?;
+            paths.prepare().map_err(std::io::Error::other)?;
+            app.manage(paths.clone());
             let initialized_database_path =
                 db::initialize_database(app.handle()).map_err(|error| {
                     eprintln!("SciLoom SQLite initialization failed: {error}");
@@ -144,6 +138,23 @@ pub fn run() {
                 eprintln!("SciLoom Provisioning Runtime activation failed: {error:?}");
                 std::io::Error::other("Provisioning Runtime activation failed")
             })?;
+            // Initialize SQLite and native owners before frontend bootstrap can run.
+            let config = app.config().app.windows.iter().find(|window| window.label == "main")
+                .ok_or_else(|| std::io::Error::other("SciLoom main window configuration is missing"))?;
+            let builder = tauri::WebviewWindowBuilder::from_config(app, config)?;
+            let builder = if let Some(directory) = paths.webview_data_directory.clone() {
+                builder.data_directory(directory)
+            } else {
+                builder
+            };
+            let main_window = builder.build()?;
+            eprintln!("SciLoom WebView profile path: {}", paths.webview_profile.display());
+            #[cfg(target_os = "windows")]
+            {
+                let icon_handles = windows_app_icon::install(&main_window)
+                    .map_err(std::io::Error::other)?;
+                app.manage(icon_handles);
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -156,6 +167,10 @@ pub fn run() {
             db::db_list_deleted_records,
             db::db_get_deleted_record,
             db::db_save_record,
+            db::planning_persistence::planning_repository_read,
+            db::planning_persistence::planning_repository_import,
+            db::planning_persistence::planning_repository_commit,
+            db::planning_persistence::db_convert_output_candidate,
             db::db_insert_record_if_absent,
             db::db_update_record,
             db::db_soft_delete_record,
@@ -163,6 +178,7 @@ pub fn run() {
             db::db_hard_delete_record,
             db::commit_output_lifecycle_transaction,
             db::ai_durable_foundation::db_create_ai_conversation,
+            db::ai_conversation_management::db_manage_ai_conversation,
             db::ai_durable_foundation::db_prepare_ai_call_attempt,
             db::ai_durable_foundation::db_prepare_ai_retry_regenerate_attempt,
             db::ai_durable_foundation::db_prepare_ai_context_request_followup,

@@ -1,4 +1,5 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { runtimePageSelection } from "../../services/runtimePageSelection";
+import { FormEvent, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { LazyManuscriptSegmentEditorWindow } from "../../components/common/LazyManuscriptSegmentEditorWindow";
 import { ModalPortal } from "../../components/common/ModalPortal";
 import { FormalSwitchConfirmationDialog } from "../../components/common/FormalSwitchConfirmationDialog";
@@ -8,6 +9,7 @@ import { StructuredSummaryDisplay } from "../../components/common/StructuredSumm
 import { FileRefPathActions } from "../../components/common/FileRefPathActions";
 import { FileRefPathPicker } from "../../components/common/FileRefPathPicker";
 import { PageHeader } from "../../components/common/PageHeader";
+import { ReviewEvidenceExportPanel } from "./ReviewEvidenceExportPanel";
 import { useRef } from "react";
 import { WriteFeedbackPanel } from "../../components/feedback/WriteFeedbackPanel";
 import { OperationConfirmDialog } from "../../components/safety/OperationConfirmDialog";
@@ -34,7 +36,7 @@ import {
 } from "../../services/reviewCoreContractService";
 import { reviewFileRefService } from "../../services/reviewFileRefService";
 import {
-  getReviewDetailContext,
+  loadReviewSelectedDetail,
   type ReviewDetailContext
 } from "../../services/reviewSelectorService";
 import { fileRefService, summarizeFileRefPath } from "../../services/fileRefService";
@@ -356,16 +358,24 @@ export function ReviewsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [routes, setRoutes] = useState<PlanningRouteEntry[]>([]);
   const [tasks, setTasks] = useState<PlanningTaskEntry[]>([]);
+  const [catalogReady, setCatalogReady] = useState(false);
+  const pageMounted = useRef(true);
+  const catalogGeneration = useRef(0);
+  const detailGeneration = useRef(0);
+  useEffect(() => { pageMounted.current = true; return () => { pageMounted.current = false; ++catalogGeneration.current; ++detailGeneration.current; }; }, []);
   const [reviews, setReviews] = useState<ReviewCatalogEntry[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState(
     () => readSharedCurrentProjectSelection() ?? ""
   );
+  const selectedProjectScope = useRef(selectedProjectId);
+  selectedProjectScope.current = selectedProjectId;
   const [reviewTypeFilter, setReviewTypeFilter] = useState<ReviewTypeFilter>("all");
   const [timeFilter, setTimeFilter] = useState<ReviewTimeFilter>("all");
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   const selectedReviewIdRef = useRef<string | null>(null);
   const [targetLinks, setTargetLinks] = useState<ReviewTargetSummary[]>([]);
+  const [detailError, setDetailError] = useState(false);
   const [isTargetLinksLoading, setIsTargetLinksLoading] = useState(false);
   const [pathMaterialSummaries, setPathMaterialSummaries] = useState<
     ReviewFileRefPathMaterialSummary[]
@@ -417,15 +427,19 @@ export function ReviewsPage() {
     const nextReviews = await planningService.queryReviewCatalog();
     setReviews(nextReviews);
     if (preferredReviewId) {
+      runtimePageSelection.remember("reviews", selectedProjectScope.current, preferredReviewId);
       setSelectedReviewId(preferredReviewId);
     }
   }, []);
 
   const loadPageData = useCallback(async () => {
+    const request = ++catalogGeneration.current;
     const [targetModel, nextReviews] = await Promise.all([
       planningPageAdapterService.getPlanningReviewTargetsModel(),
       planningService.queryReviewCatalog()
     ]);
+    if (!pageMounted.current || request !== catalogGeneration.current) return;
+    setCatalogReady(true);
     setProjects(targetModel.projects);
     setRoutes(targetModel.routeNodes);
     setTasks(targetModel.tasks);
@@ -438,20 +452,8 @@ export function ReviewsPage() {
     });
   }, []);
 
-  const loadSelectedReviewTargets = useCallback(async (reviewId: string) => {
-    return planningService.queryReviewTargets(reviewId);
-  }, []);
-
-  const loadSelectedReviewPathMaterials = useCallback(async (reviewId: string) => {
-    return reviewFileRefService.queryReviewFileRefPathMaterialSummaries(reviewId);
-  }, []);
-
-  const loadSelectedReviewFileRefs = useCallback(async (reviewId: string) => {
-    return reviewFileRefService.queryReviewFileRefs(reviewId);
-  }, []);
-
-  const loadSelectedReviewDetailContext = useCallback(async (reviewId: string) => {
-    return getReviewDetailContext(reviewId);
+  const loadSelectedReviewDetail = useCallback(async (reviewId: string) => {
+    return loadReviewSelectedDetail(reviewId);
   }, []);
 
   function clearSelectedReviewDetailState() {
@@ -471,9 +473,7 @@ export function ReviewsPage() {
     setPathMaterialError("");
   }
 
-  useEffect(() => {
-    selectedReviewIdRef.current = selectedReviewId;
-  }, [selectedReviewId]);
+  selectedReviewIdRef.current = selectedReviewId;
 
   useEffect(() => {
     if (!isEditorOpen || !form.projectId) {
@@ -528,56 +528,11 @@ export function ReviewsPage() {
   const reloadCurrentPage = useCallback(
     async (_event?: RefreshEvent) => {
       await loadPageData();
-      if (selectedReviewId) {
-        const reviewId = selectedReviewId;
-        setIsTargetLinksLoading(true);
-        setSelectedReview(null);
-        setTargetLinks([]);
-        setPathMaterialSummaries([]);
-        setReviewPathFileRefs([]);
-        setReviewDetailContext(undefined);
-        try {
-          const [nextTargets, nextPathMaterials, nextPathFileRefs, nextDetailContext] = await Promise.all([
-            loadSelectedReviewTargets(reviewId),
-            loadSelectedReviewPathMaterials(reviewId),
-            loadSelectedReviewFileRefs(reviewId),
-            loadSelectedReviewDetailContext(reviewId)
-          ]);
-          if (selectedReviewIdRef.current === reviewId) {
-            setTargetLinks(nextTargets);
-            setPathMaterialSummaries(nextPathMaterials);
-            setReviewPathFileRefs(nextPathFileRefs.filter((fileRef) => !fileRef.deletedAt));
-            setReviewDetailContext(nextDetailContext);
-            setSelectedReview(nextDetailContext?.review ?? null);
-          }
-        } catch (error) {
-          console.warn("Failed to reload Review targets.", error);
-          if (selectedReviewIdRef.current === reviewId) {
-            feedbackCenter.pushPageFeedback({
-              severity: "warning",
-              title: "Review targets could not be refreshed.",
-              summary: error instanceof Error ? error.message : String(error),
-              operation: "reviewTargets.reload"
-            });
-            setTargetLinks([]);
-            setPathMaterialSummaries([]);
-            setReviewPathFileRefs([]);
-            setReviewDetailContext(undefined);
-            setSelectedReview(null);
-          }
-        } finally {
-          if (selectedReviewIdRef.current === reviewId) {
-            setIsTargetLinksLoading(false);
-          }
-        }
-      }
+      if (pageMounted.current) setDetailReloadVersion(value => value + 1);
     },
     [
       loadPageData,
-      loadSelectedReviewDetailContext,
-      loadSelectedReviewFileRefs,
-      loadSelectedReviewPathMaterials,
-      loadSelectedReviewTargets,
+      loadSelectedReviewDetail,
       selectedReviewId
     ]
   );
@@ -595,6 +550,7 @@ export function ReviewsPage() {
 
   useEffect(() => {
     loadPageData().catch((error) => {
+      if (!pageMounted.current) return;
       console.warn("Failed to load Review page data.", error);
       feedbackCenter.pushPageFeedback({
         severity: "error",
@@ -635,21 +591,27 @@ export function ReviewsPage() {
     if (isEditorOpen && !editingReviewId) {
       return;
     }
-    if (!filteredReviews.some((review) => review.id === selectedReviewId)) {
-      setSelectedReviewId(
-        filteredReviews.find((review) => review.structuredStateStatus === "available")?.id ?? null
-      );
-    }
-  }, [editingReviewId, filteredReviews, isEditorOpen, reviews, selectedReviewId]);
+    if (!catalogReady) return;
+    const remembered = runtimePageSelection.read("reviews", selectedProjectId);
+    const valid = (id: string | null) => filteredReviews.some(review => review.id === id && !review.deletedAt);
+    const next = valid(remembered) ? remembered : null;
+    if (remembered && !next) runtimePageSelection.remember("reviews", selectedProjectId, null);
+    if (selectedReviewId !== next) setSelectedReviewId(next);
+  }, [editingReviewId, filteredReviews, isEditorOpen, reviews, selectedReviewId, selectedProjectId, catalogReady]);
 
   useEffect(() => {
-    if (!selectedReviewId) {
+    const token = ++detailGeneration.current;
+    setDetailError(false);
+    if (!selectedReviewId || !filteredReviews.some(row => row.id === selectedReviewId)) {
+      setIsTargetLinksLoading(false);
       setSelectedReview(null);
       clearSelectedReviewDetailState();
       return;
     }
 
     let cancelled = false;
+    const scope = selectedProjectId;
+    const valid = () => !cancelled && pageMounted.current && detailGeneration.current === token && selectedProjectScope.current === scope && selectedReviewIdRef.current === selectedReviewId;
     setTargetLinks([]);
     setPathMaterialSummaries([]);
     setReviewPathFileRefs([]);
@@ -666,14 +628,10 @@ export function ReviewsPage() {
     });
     setPathMaterialError("");
     setIsTargetLinksLoading(true);
-    Promise.all([
-      loadSelectedReviewTargets(selectedReviewId),
-      loadSelectedReviewPathMaterials(selectedReviewId),
-      loadSelectedReviewFileRefs(selectedReviewId),
-      loadSelectedReviewDetailContext(selectedReviewId)
-    ])
+    loadSelectedReviewDetail(selectedReviewId)
       .then(([nextTargets, nextPathMaterials, nextPathFileRefs, nextDetailContext]) => {
-        if (!cancelled) {
+        if (valid()) {
+          if (!nextDetailContext?.review || nextDetailContext.review.id !== selectedReviewId || nextDetailContext.review.projectId !== scope || nextDetailContext.review.deletedAt) throw new Error("Review is unavailable in this project.");
           setTargetLinks(nextTargets);
           setPathMaterialSummaries(nextPathMaterials);
           setReviewPathFileRefs(nextPathFileRefs.filter((fileRef) => !fileRef.deletedAt));
@@ -683,7 +641,8 @@ export function ReviewsPage() {
       })
       .catch((error) => {
         console.warn("Failed to load Review targets.", error);
-        if (!cancelled) {
+        if (valid()) {
+          setDetailError(true);
           feedbackCenter.pushPageFeedback({
             severity: "warning",
             title: "Review targets could not be loaded.",
@@ -698,22 +657,21 @@ export function ReviewsPage() {
         }
       })
       .finally(() => {
-        if (!cancelled) {
+        if (valid()) {
           setIsTargetLinksLoading(false);
         }
       });
 
     return () => {
       cancelled = true;
+      ++detailGeneration.current;
     };
   }, [
     feedbackCenter.pushPageFeedback,
-    loadSelectedReviewDetailContext,
-    loadSelectedReviewFileRefs,
-    loadSelectedReviewPathMaterials,
-    loadSelectedReviewTargets,
+    loadSelectedReviewDetail,
     detailReloadVersion,
-    selectedReviewId
+    selectedReviewId,
+    selectedProjectId
   ]);
 
   const ui = useCallback((source: string) => nonPlanningUi(language, source), [language]);
@@ -736,7 +694,7 @@ export function ReviewsPage() {
     setDetailReloadVersion((current) => current + 1);
   }, []);
   const manuscriptEditor = useReviewManuscriptEditor({
-    reviewId: selectedReview?.id,
+    reviewId: selectedReview?.id === selectedReviewId && selectedReview.projectId === selectedProjectId ? selectedReview.id : undefined,
     reviewType: selectedReview?.reviewType,
     refreshSignal: reviewDetailContext
       ? `${reviewDetailContext.review.updatedAt}:${reviewDetailContext.manuscriptSummary.manuscriptFileCount}:${reviewDetailContext.manuscriptSummary.hasManagedWorkspace}`
@@ -862,6 +820,7 @@ export function ReviewsPage() {
       ...emptyForm,
       projectId: selectedProjectId || projects[0]?.id || ""
     });
+    runtimePageSelection.remember("reviews", selectedProjectScope.current, transition.selectedReviewId);
     setSelectedReviewId(transition.selectedReviewId);
     setEditingReviewId(transition.editor.editingReviewId);
     setEditorMode(transition.editor.mode);
@@ -883,6 +842,7 @@ export function ReviewsPage() {
       selectedReview.id,
       toReviewForm(selectedReview, targetLinks)
     );
+    runtimePageSelection.remember("reviews", selectedProjectScope.current, transition.selectedReviewId);
     setSelectedReviewId(transition.selectedReviewId);
     setEditingReviewId(transition.editor.editingReviewId);
     setEditorMode(transition.editor.mode);
@@ -897,6 +857,7 @@ export function ReviewsPage() {
   function closeEditor() {
     researchTracePreferenceRequestRef.current = "";
     const transition = closeReviewEditorModal(selectedReviewId, emptyForm);
+    runtimePageSelection.remember("reviews", selectedProjectScope.current, transition.selectedReviewId);
     setSelectedReviewId(transition.selectedReviewId);
     setIsEditorOpen(transition.editor.isOpen);
     setEditorMode(transition.editor.mode);
@@ -930,13 +891,14 @@ export function ReviewsPage() {
     }
   }
 
-  async function selectReview(reviewId: string, lifecycleSettled = false) {
+  async function selectReview(reviewId: string, lifecycleSettled = false, scope = selectedProjectId) {
+    if (!pageMounted.current || selectedProjectScope.current !== scope) return;
     if (reviewId !== selectedReviewId && !lifecycleSettled) {
       await sharedEditorLifecycleController.requestSequence({
         trigger: "owner-change",
         continuationIntent: "OWNER_CHANGE",
         surface: "application",
-        continuation: () => selectReview(reviewId, true)
+        continuation: () => selectReview(reviewId, true, scope)
       });
       return;
     }
@@ -946,7 +908,14 @@ export function ReviewsPage() {
     if (reviewId !== selectedReviewId) {
       setOutputGenerationDraft(null);
     }
+    runtimePageSelection.remember("reviews", selectedProjectId, reviewId);
+    setSelectedReview(null);
+    setIsTargetLinksLoading(true);
     setSelectedReviewId(reviewId);
+  }
+
+  async function changeReviewFilter(apply: () => void) {
+    await sharedEditorLifecycleController.requestSequence({ trigger: "owner-change", continuationIntent: "OWNER_CHANGE", surface: "application", continuation: apply });
   }
 
   function openReviewManuscript() {
@@ -1673,6 +1642,7 @@ export function ReviewsPage() {
       }
       const transition = completeReviewEditorModalSave(saved.id, emptyForm);
       await loadReviews(transition.selectedReviewId ?? saved.id);
+      runtimePageSelection.remember("reviews", selectedProjectScope.current, transition.selectedReviewId);
       setSelectedReviewId(transition.selectedReviewId);
       setIsEditorOpen(transition.editor.isOpen);
       setEditorMode(transition.editor.mode);
@@ -1805,9 +1775,11 @@ export function ReviewsPage() {
     return t("reviewRelatedLiterature");
   }
 
-  function renderFormalObjectSection() {
+  function renderFormalObjectSection(evidence: ReactNode) {
     return (
-      <details className="review-detail-section review-formal-objects-section">
+      <section className="review-detail-section review-objects-convergence">
+      {reviewDetailContext && (reviewDetailContext.partial || reviewDetailContext.missing.length || reviewDetailContext.warnings.length) ? <p role="alert">{language === "zh-CN" ? "复盘对象或路径有缺失 / 范围提示，请展开核对。" : "Review objects or paths have missing/scope notices. Expand to inspect."}</p> : null}
+      <details className="review-formal-objects-section">
         <summary>
           <span>{t("reviewObjects")}</span>
           <span className="review-formal-object-counts">
@@ -1821,6 +1793,7 @@ export function ReviewsPage() {
         {isTargetLinksLoading ? (
           <p className="review-content-empty">{t("reviewObjectsLoading")}</p>
         ) : null}
+        {reviewDetailContext?.warnings.length || reviewDetailContext?.missing.length ? <ul className="review-formal-object-notices">{reviewDetailContext.warnings.map((warning, index) => <li key={`warning-${index}`}>{warning.message}</li>)}{reviewDetailContext.missing.map((missing, index) => <li key={`missing-${index}`}>{missing.message}</li>)}</ul> : null}
         <div className="review-formal-object-groups">
           {formalObjectCard.countItems.map((targetType) => {
             const items = formalObjectGroups[targetType];
@@ -1843,6 +1816,8 @@ export function ReviewsPage() {
           })}
         </div>
       </details>
+      {evidence}
+      </section>
     );
   }
 
@@ -2815,8 +2790,10 @@ export function ReviewsPage() {
               value={selectedProjectId}
               onChange={(event) => {
                 const projectId = event.target.value;
-                writeSharedCurrentProjectSelection(projectId);
-                setSelectedProjectId(projectId);
+                void sharedEditorLifecycleController.requestSequence({
+                  trigger: "owner-change", continuationIntent: "OWNER_CHANGE", surface: "application",
+                  continuation: () => { writeSharedCurrentProjectSelection(projectId); setSelectedProjectId(projectId); }
+                });
               }}
             >
               {projects.map((project) => (
@@ -2831,9 +2808,7 @@ export function ReviewsPage() {
               <span>{t("reviewFormType")}</span>
               <select
                 value={reviewTypeFilter}
-                onChange={(event) =>
-                  setReviewTypeFilter(event.target.value as ReviewTypeFilter)
-                }
+                onChange={(event) => { const value = event.target.value as ReviewTypeFilter; void changeReviewFilter(() => setReviewTypeFilter(value)); }}
               >
                 <option value="all">{t("allReviews")}</option>
                 <option value="stage">{reviewTypeLabels.stage}</option>
@@ -2851,7 +2826,7 @@ export function ReviewsPage() {
               <span>{t("reviewTimeRange")}</span>
               <select
                 value={timeFilter}
-                onChange={(event) => setTimeFilter(event.target.value as ReviewTimeFilter)}
+                onChange={(event) => { const value = event.target.value as ReviewTimeFilter; void changeReviewFilter(() => setTimeFilter(value)); }}
               >
                 <option value="this_week">{t("thisWeek")}</option>
                 <option value="this_month">{t("thisMonth")}</option>
@@ -2908,11 +2883,12 @@ export function ReviewsPage() {
           </aside>
 
           <main className="reviews-detail-column">
-          {selectedReview ? (
-            <>
+          {selectedReview && selectedReview.id === selectedReviewId && selectedReview.projectId === selectedProjectId ? (
+            <ReviewEvidenceExportPanel key={selectedReview.id} review={selectedReview} refreshKey={detailReloadVersion}>{(evidence, exportAction) => <>
               <div className="reviews-detail-heading">
                 <div>
                   <h2>{reviewDisplayTitle(selectedReview)}</h2>
+                  {selectedReview.periodStart || selectedReview.periodEnd ? <p className="reviews-detail-period">{language === "zh-CN" ? "复盘期间" : "Review period"}: {selectedReview.periodStart || "—"} → {selectedReview.periodEnd || "—"}</p> : null}
                   {selectedReview.description?.trim() ? (
                     <p className="reviews-detail-description">
                       {selectedReview.description.trim()}
@@ -2920,6 +2896,7 @@ export function ReviewsPage() {
                   ) : null}
                 </div>
                 <div className="reviews-detail-actions">
+                  {exportAction}
                   {getReviewFormalDetailHeaderActions().includes("edit") ? (
                     <button
                       type="button"
@@ -2934,13 +2911,13 @@ export function ReviewsPage() {
               </div>
 
               <div className="reviews-detail-body">
-                {renderFormalObjectSection()}
+                {renderFormalObjectSection(evidence)}
                 {renderFormalSummarySection()}
                 {renderPathRecordsSection()}
               </div>
-            </>
+            </>}</ReviewEvidenceExportPanel>
           ) : (
-            <p className="review-content-empty review-content-empty-state">{t("reviewSelectTitle")}</p>
+            <p className="review-content-empty review-content-empty-state">{detailError ? <><span>{language === "zh-CN" ? "详情读取失败。" : "Detail could not be read."}</span><button type="button" onClick={() => setDetailReloadVersion(value => value + 1)}>{language === "zh-CN" ? "重试" : "Retry"}</button></> : isTargetLinksLoading || selectedReviewId && selectedReview?.id !== selectedReviewId ? (language === "zh-CN" ? "正在加载…" : "Loading…") : t("reviewSelectTitle")}</p>
           )}
           </main>
         </div>

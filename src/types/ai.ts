@@ -1,4 +1,4 @@
-export type AIProvider = "deepseek" | "openai" | "tencent_tokenhub" | "kimi";
+export type AIProvider = "deepseek" | "openai" | "tencent_tokenhub" | "kimi" | "qwen" | "gemini";
 
 export type AIErrorCode =
   | "invalid_prompt"

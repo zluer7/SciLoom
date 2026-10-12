@@ -18,6 +18,7 @@ type AIContextPreviewPanelProps = {
   onEdit: () => void;
   onReselect: () => void;
   onSaveContext: (contextMarkdown: string) => void;
+  onExport: (contextMarkdown: string) => void;
   onCancelEdit: () => void;
   onConfirm: () => void;
 };
@@ -62,6 +63,7 @@ export function AIContextPreviewPanel({
   onEdit,
   onReselect,
   onSaveContext,
+  onExport,
   onCancelEdit,
   onConfirm
 }: AIContextPreviewPanelProps) {
@@ -235,6 +237,7 @@ export function AIContextPreviewPanel({
               恢复默认内容
             </button>
             <button disabled={disabled} onClick={cancelEditing} type="button">取消</button>
+            <button disabled={disabled} onClick={() => onExport(draftContext)} type="button">导出</button>
             <button className="is-primary" disabled={disabled || !dirty} onClick={saveEditing} type="button">保存</button>
           </>
         ) : (
@@ -243,6 +246,7 @@ export function AIContextPreviewPanel({
             <button className="ai-context-preview__edit" disabled={disabled || editingDisabled} onClick={onEdit} type="button">
               编辑内容
             </button>
+            <button disabled={disabled} onClick={() => onExport(contextMarkdown)} type="button">导出</button>
             <button className="is-primary" disabled={disabled} onClick={onConfirm} type="button">确认</button>
           </>
         )}

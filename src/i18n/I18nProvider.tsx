@@ -12,12 +12,14 @@ type I18nContextValue = {
 const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 
 function getInitialLanguage(): Language {
-  if (typeof window === "undefined" || !window.localStorage) {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) return "zh-CN";
+    const stored = window.localStorage.getItem(LANGUAGE_KEY);
+    return stored === "en-US" || stored === "zh-CN" ? stored : "zh-CN";
+  } catch {
+    // Unavailable UI preference storage must not prevent the app from opening.
     return "zh-CN";
   }
-
-  const stored = window.localStorage.getItem(LANGUAGE_KEY);
-  return stored === "en-US" || stored === "zh-CN" ? stored : "zh-CN";
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {

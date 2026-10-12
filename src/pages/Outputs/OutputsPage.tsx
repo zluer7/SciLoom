@@ -1,9 +1,11 @@
+import { runtimePageSelection } from "../../services/runtimePageSelection";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FileRefPathActions } from "../../components/common/FileRefPathActions";
 import { FileRefPathPicker } from "../../components/common/FileRefPathPicker";
 import { PageHeader } from "../../components/common/PageHeader";
 import { LazyManuscriptSegmentEditorWindow } from "../../components/common/LazyManuscriptSegmentEditorWindow";
 import type { ManuscriptSegmentDraftSnapshot } from "../../types/manuscriptSegmentProjection";
+import { OutputEvidenceExportPanel } from "./OutputEvidenceExportPanel";
 import { formatOutputManuscriptContextInsert } from "../../services/outputManuscriptPresentationService";
 import { ModalPortal } from "../../components/common/ModalPortal";
 import { StructuredSummaryDisplay } from "../../components/common/StructuredSummaryDisplay";
@@ -325,6 +327,14 @@ export function OutputsPage() {
   const [projectId, setProjectId] = useState(
     () => readSharedCurrentProjectSelection() ?? ""
   );
+  const mounted = useRef(true);
+  const workspaceGeneration = useRef(0);
+  const layerGeneration = useRef<Record<string, number>>({});
+  const projectScope = useRef(projectId);
+  projectScope.current = projectId;
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; ++workspaceGeneration.current; }; }, []);
+  const [detailLoading, setDetailLoading] = useState<Record<string, boolean>>({});
+  const [detailErrors, setDetailErrors] = useState<Record<string, string>>({});
   const [lists, setLists] = useState<LayerLists>(EMPTY_LISTS);
   const [selections, setSelections] = useState<LayerSelections>(EMPTY_SELECTIONS);
   const feedbackContext = useMemo(() => ({
@@ -877,6 +887,7 @@ export function OutputsPage() {
         title: project.title,
         status: project.status
       }));
+      if (!mounted.current) return;
       setProjects(options);
       setProjectId((current) =>
         options.some((project) => project.id === current)
@@ -918,108 +929,49 @@ export function OutputsPage() {
     });
   }
 
+  function selectable(layer: OutputEntityLayer, row: OutputEntityListItemDto) {
+    const filter = filters[layer];
+    const keyword = filter.keyword.trim().toLocaleLowerCase();
+    return (!filter.status || row.status === filter.status) && (!keyword ||
+      [row.title, row.structuredSummaryPreview ?? ""].some(value => value.toLocaleLowerCase().includes(keyword)));
+  }
+
   async function loadWorkspace(preferred?: Selection, clearLayer?: OutputEntityLayer): Promise<LayerLists | undefined> {
-    if (!projectId) {
-      setLists(EMPTY_LISTS);
-      setSelections(EMPTY_SELECTIONS);
-      setDetails(EMPTY_DETAILS);
-      setPathFileRefs(EMPTY_FILE_REFS);
-      setSourceSummaries(EMPTY_SOURCE_SUMMARIES);
-      setOutputGapFeedbackCardSummary(null);
-      setFeedbackCardArchiveOpen({});
-      setPendingArchiveFeedbackCard(null);
-      setFeedbackCardEditor(null);
-      setFeedbackCardError("");
-      return;
-    }
+    const scope = projectId;
+    const generation = ++workspaceGeneration.current;
+    const valid = () => mounted.current && projectScope.current === scope && workspaceGeneration.current === generation;
+    if (!scope) { resetWorkspaceForProjectChange(); return; }
     setLoading(true);
     setError("");
+    // Invalidate outstanding detail reads before refreshing this scope.
+    for (const layer of LAYERS) layerGeneration.current[layer] = (layerGeneration.current[layer] ?? 0) + 1;
     try {
-      const rows = await Promise.all(
-        LAYERS.map((layer) =>
-          outputFiveLayerSelectorService.listOutputEntities({
-            layer,
-            projectId,
-            includeArchived: false,
-            includeDeleted: false
-          })
-        )
-      );
-      const nextLists = Object.fromEntries(
-        LAYERS.map((layer, index) => [layer, rows[index]])
-      ) as LayerLists;
-      const nextSelections = { ...selections };
-      for (const layer of LAYERS) {
-        if (clearLayer === layer) {
-          nextSelections[layer] = null;
-          continue;
-        }
-        if (preferred?.layer === layer) {
-          nextSelections[layer] = nextLists[layer].some((item) => item.id === preferred.id)
-            ? preferred.id
-            : null;
-          continue;
-        }
-        const current = nextSelections[layer];
-        if (current && !nextLists[layer].some((item) => item.id === current)) {
-          nextSelections[layer] = null;
-        }
-      }
-      const detailRows = await Promise.all(
-        LAYERS.map(async (layer) => {
-          const id = nextSelections[layer];
-          if (!id) return null;
-          const detail = await outputFiveLayerSelectorService.getOutputEntityDetail({
-            layer,
-            id,
-            includeDeleted: false
-          });
-          return detail.entity ? detail : null;
-        })
-      );
-      const outputGapDetail = detailRows[LAYERS.indexOf("outputGap")];
-      const [fileRefRows, sourceSummaryRows, nextOutputGapFeedbackCardSummary] = await Promise.all([
-        Promise.all(
-          LAYERS.map((layer, index) => {
-            const detail = detailRows[index];
-            return detail
-              ? outputFileRefService.listOutputFileRefs(layer, detail.id)
-              : Promise.resolve([]);
-          })
-        ),
-        Promise.all(
-          LAYERS.map((layer, index) => {
-            const detail = detailRows[index];
-            return detail
-              ? getOutputSourceSummary(layer, detail.id)
-              : Promise.resolve(null);
-          })
-        ),
-        outputGapDetail?.entity && outputGapDetail.id
-          ? outputGapFeedbackCardSelectorService.getOutputGapFeedbackCardSummary(outputGapDetail.id)
-          : Promise.resolve(null)
-      ]);
+      const rows = await Promise.all(LAYERS.map(layer => outputFiveLayerSelectorService.listOutputEntities({
+        layer, projectId: scope, includeArchived: false, includeDeleted: false
+      })));
+      if (!valid()) return;
+      const nextLists = Object.fromEntries(LAYERS.map((layer, index) => [layer, rows[index]])) as LayerLists;
       setLists(nextLists);
-      setSelections(nextSelections);
-      setDetails(
-        Object.fromEntries(LAYERS.map((layer, index) => [layer, detailRows[index]])) as LayerDetails
-      );
-      setPathFileRefs(
-        Object.fromEntries(LAYERS.map((layer, index) => [layer, fileRefRows[index]])) as LayerFileRefs
-      );
-      setSourceSummaries(
-        Object.fromEntries(
-          LAYERS.map((layer, index) => [layer, sourceSummaryRows[index]])
-        ) as LayerSourceSummaries
-      );
-      setOutputGapFeedbackCardSummary(nextOutputGapFeedbackCardSummary);
-      return nextLists;
+      await Promise.all(LAYERS.map(async layer => {
+        const remembered = clearLayer === layer ? null : preferred?.layer === layer ? preferred.id : runtimePageSelection.read("outputs", scope, layer);
+        const id = nextLists[layer].some(row => row.id === remembered && selectable(layer, row)) ? remembered : null;
+        runtimePageSelection.remember("outputs", scope, id, layer);
+        if (id) await selectEntityImmediately(layer, id);
+        else {
+          setSelections(current => ({...current, [layer]: null}));
+          setDetails(current => ({...current, [layer]: null}));
+          setPathFileRefs(current => ({...current, [layer]: []}));
+          setSourceSummaries(current => ({...current, [layer]: null}));
+          setDetailLoading(current => ({...current, [layer]: false}));
+          setDetailErrors(current => ({...current, [layer]: ""}));
+          if (layer === "outputGap") setOutputGapFeedbackCardSummary(null);
+        }
+      }));
+      return valid() ? nextLists : undefined;
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      if (valid()) setError(cause instanceof Error ? cause.message : String(cause));
       return undefined;
-    } finally {
-      setLoading(false);
-    }
+    } finally { if (valid()) setLoading(false); }
   }
 
   useEffect(() => {
@@ -1053,43 +1005,41 @@ export function OutputsPage() {
       feedbackCenter.pushReloadErrorFeedback(cause, event, "outputs")
   });
 
-  async function selectEntityImmediately(
-    layer: OutputEntityLayer,
-    id: string
-  ) {
+  async function selectEntityImmediately(layer: OutputEntityLayer, id: string) {
+    const scope = projectId;
+    if (!mounted.current || projectScope.current !== scope) return;
+    const workspace = workspaceGeneration.current;
+    const request = (layerGeneration.current[layer] ?? 0) + 1;
+    layerGeneration.current[layer] = request;
+    const valid = () => mounted.current && projectScope.current === scope && workspaceGeneration.current === workspace && layerGeneration.current[layer] === request;
+    runtimePageSelection.remember("outputs", scope, id, layer);
     setError("");
-    setSelections((current) => ({ ...current, [layer]: id }));
-    setPathFolds((current) => ({ ...current, [layer]: false }));
-    setSourceFolds((current) => ({ ...current, [layer]: false }));
+    setSelections(current => ({...current, [layer]: id}));
+    setDetails(current => ({...current, [layer]: null}));
+    setPathFileRefs(current => ({...current, [layer]: []}));
+    setSourceSummaries(current => ({...current, [layer]: null}));
+    setDetailLoading(current => ({...current, [layer]: true}));
+    setDetailErrors(current => ({...current, [layer]: ""}));
+    if (layer === "outputGap") setOutputGapFeedbackCardSummary(null);
+    setPathFolds(current => ({...current, [layer]: false}));
+    setSourceFolds(current => ({...current, [layer]: false}));
     setPathDraft(null);
     setPathDraftError("");
     try {
       const [detail, fileRefs, sourceSummary, feedbackCardSummary] = await Promise.all([
-        outputFiveLayerSelectorService.getOutputEntityDetail({
-          layer,
-          id,
-          includeDeleted: false
-        }),
-        outputFileRefService.listOutputFileRefs(layer, id),
-        getOutputSourceSummary(layer, id),
-        layer === "outputGap"
-          ? outputGapFeedbackCardSelectorService.getOutputGapFeedbackCardSummary(id)
-          : Promise.resolve(null)
+        outputFiveLayerSelectorService.getOutputEntityDetail({layer, id, includeDeleted:false}),
+        outputFileRefService.listOutputFileRefs(layer, id), getOutputSourceSummary(layer, id),
+        layer === "outputGap" ? outputGapFeedbackCardSelectorService.getOutputGapFeedbackCardSummary(id) : Promise.resolve(null)
       ]);
-      setDetails((current) => ({ ...current, [layer]: detail.entity ? detail : null }));
-      setPathFileRefs((current) => ({ ...current, [layer]: fileRefs }));
-      setSourceSummaries((current) => ({ ...current, [layer]: sourceSummary }));
-      if (layer === "outputGap") {
-        setOutputGapFeedbackCardSummary(feedbackCardSummary);
-      }
+      if (!valid()) return;
+      if (!detail.entity || detail.id !== id || detail.entity.projectId !== scope || detail.entity.deletedAt) throw new Error("Output is unavailable in this project.");
+      setDetails(current => ({...current, [layer]: detail}));
+      setPathFileRefs(current => ({...current, [layer]: fileRefs}));
+      setSourceSummaries(current => ({...current, [layer]: sourceSummary}));
+      if (layer === "outputGap") setOutputGapFeedbackCardSummary(feedbackCardSummary);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-      setPathFileRefs((current) => ({ ...current, [layer]: [] }));
-      setSourceSummaries((current) => ({ ...current, [layer]: null }));
-      if (layer === "outputGap") {
-        setOutputGapFeedbackCardSummary(null);
-      }
-    }
+      if (valid()) setDetailErrors(current => ({...current, [layer]: cause instanceof Error ? cause.message : String(cause)}));
+    } finally { if (valid()) setDetailLoading(current => ({...current, [layer]: false})); }
   }
 
   async function selectEntity(layer: OutputEntityLayer, id: string) {
@@ -1115,8 +1065,9 @@ export function OutputsPage() {
   }
 
   async function refreshSourceSummary(layer: OutputEntityLayer, id: string) {
+    const scope = projectId, request = layerGeneration.current[layer];
     const sourceSummary = await getOutputSourceSummary(layer, id);
-    setSourceSummaries((current) => ({ ...current, [layer]: sourceSummary }));
+    if (mounted.current && projectScope.current === scope && layerGeneration.current[layer] === request) setSourceSummaries((current) => ({ ...current, [layer]: sourceSummary }));
   }
 
   async function refreshOutputGapFeedbackCardSummary(outputGapId: string) {
@@ -1743,6 +1694,19 @@ export function OutputsPage() {
     }
   }
 
+  async function changeLayerFilter(layer: OutputEntityLayer, next: LayerFilters[OutputEntityLayer]) {
+    await outputsManuscriptEditorHost.requestProjectSwitch(projectId, () => {
+      setFilters(current => ({...current, [layer]: next}));
+      const currentId = selections[layer];
+      const keyword = next.keyword.trim().toLocaleLowerCase();
+      if (lists[layer].some(row => row.id === currentId && (!next.status || row.status === next.status) && (!keyword || [row.title, row.structuredSummaryPreview ?? ""].some(value => value.toLocaleLowerCase().includes(keyword))))) return;
+      layerGeneration.current[layer] = (layerGeneration.current[layer] ?? 0) + 1;
+      runtimePageSelection.remember("outputs", projectId, null, layer);
+      setSelections(current => ({...current, [layer]: null}));
+      setDetails(current => ({...current, [layer]: null}));
+    });
+  }
+
   const filteredLists = useMemo(() => {
     return Object.fromEntries(
       LAYERS.map((layer) => {
@@ -1764,7 +1728,7 @@ export function OutputsPage() {
 
   function renderSourceSummary(layer: OutputEntityLayer) {
     const summary = sourceSummaries[layer];
-    const isOpen = sourceFolds[layer];
+    const isOpen = true;
     const counts = summary
       ? (Object.entries(summary.countsBySourceType) as Array<[OutputSourceType, number]>)
           .filter(([, count]) => count > 0)
@@ -1774,25 +1738,12 @@ export function OutputsPage() {
         ? `${t("outputSourceSummary")}：${counts
             .map(([sourceType, count]) => `${sourceTypeLabel(sourceType)} ${count}`)
             .join(" · ")}`
-        : t("outputSourceEmpty");
+        : summary ? t("outputSourceEmpty") : (language === "zh-CN" ? "来源状态未知；请重新读取。" : "Source state unknown; read again.");
 
     return (
       <div className="outputs-formal-source-summary">
-        <button
-          type="button"
-          className="outputs-formal-source-toggle"
-          aria-expanded={isOpen}
-          disabled={!summary?.total}
-          onClick={() =>
-            setSourceFolds((current) => ({ ...current, [layer]: !current[layer] }))
-          }
-        >
-          <span>{summary?.total ? summaryText : t("outputSourceEmpty")}</span>
-          {summary?.hasMissingSources ? (
-            <small>{t("outputSourceHasMissing")}</small>
-          ) : null}
-          {summary?.total ? <span aria-hidden="true">{isOpen ? "v" : ">"}</span> : null}
-        </button>
+        <h4>{summaryText}</h4>
+        {summary?.hasMissingSources ? <p role="alert">{t("outputSourceHasMissing")}</p> : null}
         {isOpen && summary?.total ? (
           <section className="outputs-formal-source-cards" aria-label={t("outputSourceCards")}>
             {summary.cards.map((card) => (
@@ -1806,7 +1757,7 @@ export function OutputsPage() {
                       ? card.sourceTitleSnapshot
                       : card.sourceTitle}
                   </strong>
-                  <span>{sourceTypeLabel(card.sourceType)}</span>
+                  <span>{sourceTypeLabel(card.sourceType)} · {card.relationType} · {language === "zh-CN" ? "来源 → 当前对象" : "Source → current object"}</span>
                 </div>
                 {card.sourceNote ? (
                   <p className="outputs-formal-source-note">{card.sourceNote}</p>
@@ -1818,7 +1769,7 @@ export function OutputsPage() {
                 ) : null}
                 {card.sourceStatus === "missing" ? (
                   <p className="outputs-formal-source-warning">
-                    {t("outputSourceMissing")}
+                    {card.warning?.includes("failed to resolve") ? (language === "zh-CN" ? "来源读取失败；显示已存标题。" : "Source could not be read; showing saved title.") : t("outputSourceMissing")}
                   </p>
                 ) : null}
               </article>
@@ -2392,20 +2343,22 @@ export function OutputsPage() {
 
   function renderLayerDetail(layer: OutputEntityLayer) {
     const detail = details[layer];
-    if (!detail?.entity) {
-      return <div className="outputs-formal-detail-empty">{selectPrompt(layer)}</div>;
+    if (!detail?.entity || detail.id !== selections[layer] || detail.entity.projectId !== projectId) {
+      return <div className="outputs-formal-detail-empty">{detailErrors[layer] && selections[layer] ? <><p role="alert">{detailErrors[layer]}</p><button type="button" onClick={() => void selectEntity(layer, selections[layer]!)}>{language === "zh-CN" ? "重试" : "Retry"}</button></> : detailLoading[layer] && selections[layer] ? (language === "zh-CN" ? "正在加载…" : "Loading…") : selectPrompt(layer)}</div>;
     }
     const titleDescription = entityTitleDescription(layer, detail);
     return (
-      <div className="outputs-formal-detail-content">
+      <OutputEvidenceExportPanel key={`${layer}:${detail.id}`} identity={{ layer, id: detail.id, projectId: detail.entity.projectId }} revision={detail.entity.updatedAt} sourceDetails={renderSourceSummary(layer)} presentedSourceCards={sourceSummaries[layer]?.ownerId === detail.id ? sourceSummaries[layer]?.cards : undefined}>{(evidence, exportAction) => <div className="outputs-formal-detail-content">
         <section className="outputs-formal-intro">
           <div className="outputs-formal-intro-copy">
             <h3>{entityTitle(detail)}</h3>
             {titleDescription ? (
               <p className="outputs-formal-title-description">{titleDescription}</p>
             ) : null}
-            {renderSourceSummary(layer)}
+            <section className="outputs-source-convergence" aria-label={language === "zh-CN" ? "来源与关联" : "Sources and relations"}>{evidence}</section>
           </div>
+          <div className="outputs-detail-header-actions">
+          {exportAction}
           <button
             type="button"
             className="outputs-formal-edit-button secondary-button primary-page-action primary-page-action--secondary"
@@ -2413,6 +2366,7 @@ export function OutputsPage() {
           >
             {language === "zh-CN" ? "编辑" : "Edit"}
           </button>
+          </div>
         </section>
         <section className="outputs-formal-outline">
           <StructuredSummaryDisplay
@@ -2430,7 +2384,7 @@ export function OutputsPage() {
         </section>
         {layer === "outputGap" ? renderOutputGapFeedbackCardSection(detail) : null}
         {renderPathRecords(layer, detail)}
-      </div>
+      </div>}</OutputEvidenceExportPanel>
     );
   }
 
@@ -2473,10 +2427,7 @@ export function OutputsPage() {
                 aria-label={t("outputStatusFilter")}
                 value={filter.status}
                 onChange={(event) =>
-                  setFilters((current) => ({
-                    ...current,
-                    [layer]: { ...current[layer], status: event.target.value }
-                  }))
+                  void changeLayerFilter(layer, { ...filters[layer], status: event.target.value })
                 }
               >
                 <option value="">{t("outputAllStatuses")}</option>
@@ -2492,10 +2443,7 @@ export function OutputsPage() {
                 placeholder={t("outputKeywordFilter")}
                 value={filter.keyword}
                 onChange={(event) =>
-                  setFilters((current) => ({
-                    ...current,
-                    [layer]: { ...current[layer], keyword: event.target.value }
-                  }))
+                  void changeLayerFilter(layer, { ...filters[layer], keyword: event.target.value })
                 }
               />
             </div>

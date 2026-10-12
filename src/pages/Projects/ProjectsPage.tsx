@@ -29,6 +29,7 @@ import {
   type PlanningProjectsPageModel
 } from "../../services/planningPageAdapterService";
 import { planningService } from "../../services/planningService";
+import type { ResearchRoutine, RoutineCheckIn } from "../../types/planning";
 import { publishWriteFeedbackRefresh } from "../../services/refreshEventService";
 import { recordRecycleEntry } from "../../services/recycleBinService";
 import { researcherProfileService } from "../../services/researcherProfileService";
@@ -129,6 +130,7 @@ const emptyResearcherProfileForm: ResearcherProfileFormState = {
 const PROJECTS_REFRESH_KEYS: RefreshKeyPattern[] = [
   ...PROJECT_RESEARCH_TRACE_REFRESH_KEYS,
   "task.changed",
+  "routine.changed",
   "entityLink.changed",
   "reviewContext.changed",
   "aiContext.changed",
@@ -274,6 +276,8 @@ export function ProjectsPage() {
   const { t, language } = useI18n();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [routines, setRoutines] = useState<ResearchRoutine[]>([]);
+  const [routineCheckIns, setRoutineCheckIns] = useState<RoutineCheckIn[]>([]);
   const [planItemsByProjectId, setPlanItemsByProjectId] = useState<
     PlanningProjectsPageModel["planItemsByProjectId"]
   >({});
@@ -370,7 +374,11 @@ export function ProjectsPage() {
 
   const loadPageData = useCallback(async () => {
     const requestId = ++projectPageDataRequestIdRef.current;
-    const pageModel = await planningPageAdapterService.getPlanningProjectsPageBaseModel();
+    const [pageModel, nextRoutines, nextCheckIns] = await Promise.all([
+      planningPageAdapterService.getPlanningProjectsPageBaseModel(),
+      planningService.queryResearchRoutines({ isActive: true }),
+      planningService.queryRoutineCheckIns()
+    ]);
     if (!isMountedRef.current || requestId !== projectPageDataRequestIdRef.current) {
       return null;
     }
@@ -383,6 +391,8 @@ export function ProjectsPage() {
       : resolveSharedCurrentProjectSelection(projectRows);
 
     setProjects(projectRows);
+    setRoutines(nextRoutines);
+    setRoutineCheckIns(nextCheckIns);
     setPlanItemsByProjectId(pageModel.planItemsByProjectId);
     selectedProjectIdRef.current = nextSelectedProjectId;
     setSelectedProjectId(nextSelectedProjectId);
@@ -1382,6 +1392,10 @@ export function ProjectsPage() {
             </div>
             <ProjectVisualizationPanel
               projectId={selectedProjectId}
+              tasks={selectedProjectPlanItems.taskItems}
+              routes={selectedProjectPlanItems.routeItems}
+              routines={routines}
+              checkIns={routineCheckIns}
               ganttData={projectRouteGanttData}
               isGanttLoading={projectRouteGanttLoading}
               ganttErrorMessage={projectRouteGanttError}

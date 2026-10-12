@@ -107,7 +107,8 @@ mod tests {
                     .map(|preset| preset.credential_target),
             )
             .collect();
-        assert_eq!(targets.len(), 5);
+        // One active tuple plus the six canonical provider credential owners.
+        assert_eq!(targets.len(), 7);
         let mapped: HashSet<_> = targets.iter().map(|target| namespace(target)).collect();
         assert_eq!(mapped.len(), targets.len());
         for target in targets {

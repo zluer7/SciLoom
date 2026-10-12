@@ -1,7 +1,6 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useI18n } from "../../i18n/I18nProvider";
-import type { Language } from "../../i18n/translations";
 import { sharedEditorLifecycleController } from "../../services/sharedEditorLifecycleController";
 
 const navigationItems = [
@@ -20,7 +19,7 @@ type SidebarProps = {
 };
 
 export function Sidebar({ isAIChatOpen, onToggleAIChat }: SidebarProps) {
-  const { language, setLanguage, t } = useI18n();
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   function requestNavigation(event: ReactMouseEvent<HTMLAnchorElement>, path: string) {
@@ -65,17 +64,6 @@ export function Sidebar({ isAIChatOpen, onToggleAIChat }: SidebarProps) {
         ))}
       </nav>
       <div className="sidebar-footer">
-        <label className="sidebar-language-preference">
-          <span>{t("language")}</span>
-          <select
-            data-testid="sidebar-language-select"
-            value={language}
-            onChange={(event) => setLanguage(event.target.value as Language)}
-          >
-            <option value="zh-CN">中文</option>
-            <option value="en-US">English</option>
-          </select>
-        </label>
         <NavLink
           to="/settings"
           onClick={(event) => requestNavigation(event, "/settings")}

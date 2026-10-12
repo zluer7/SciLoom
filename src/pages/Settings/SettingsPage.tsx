@@ -3,9 +3,13 @@ import { SettingsPanel } from "../../components/layout/SettingsPanel";
 import { ManagedRootSettingsPanel } from "../../components/settings/ManagedRootSettingsPanel";
 import { AIProviderSettingsPanel } from "../../components/settings/AIProviderSettingsPanel";
 import { RecentOperationLogPanel } from "../../components/settings/RecentOperationLogPanel";
+import { BusinessOperationHistoryPanel } from "../../components/settings/BusinessOperationHistoryPanel";
+import { SupportedRecycleRestorePanel } from "../../components/settings/SupportedRecycleRestorePanel";
 import { ProjectImportPanel } from "../../components/settings/ProjectImportPanel";
+import { ProjectExportV1Panel } from "../../components/settings/ProjectExportV1Panel";
 import { useWriteFeedbackCenter } from "../../hooks/useWriteFeedbackCenter";
 import { useI18n } from "../../i18n/I18nProvider";
+import { SettingsPreferenceRow } from "../../components/settings/SettingsPreferenceRow";
 
 export function shouldProjectSettingsSuccessFeedback(operation: string) {
   return operation !== "settings.language.update";
@@ -34,10 +38,9 @@ export function SettingsPage() {
       <SettingsPanel
         onSettingChanged={handleSettingChanged}
         onSettingChangeError={feedbackCenter.consumeWriteError}
-        renderSections={({
-          dataSourceSettings
-        }) => (
+        renderSections={() => (
           <>
+            <SettingsPreferenceRow />
             <section
               aria-labelledby="settings-basic-ai-title"
               className="settings-panel settings-primary-section"
@@ -60,11 +63,9 @@ export function SettingsPage() {
               <h2 className="settings-primary-section__title" id="settings-data-storage-title">
                 数据与存储
               </h2>
-              <div className="settings-primary-section__body">
-                <div className="settings-data-storage__primary-row">
+              <div className="settings-primary-section__body settings-data-storage__rows">
                   <ProjectImportPanel />
-                  {dataSourceSettings}
-                </div>
+                  <ProjectExportV1Panel />
                 <ManagedRootSettingsPanel
                   onWriteFeedback={feedbackCenter.pushWriteFeedback}
                   onWriteError={feedbackCenter.consumeWriteError}
@@ -72,6 +73,8 @@ export function SettingsPage() {
               </div>
             </section>
 
+            <BusinessOperationHistoryPanel />
+            <SupportedRecycleRestorePanel />
             <RecentOperationLogPanel />
 
             <footer

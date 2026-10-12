@@ -21,7 +21,7 @@ function summarizeOperationLogMessage(entry: OperationLogEntry) {
 }
 
 export function RecentOperationLogPanel() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [logs, setLogs] = useState<OperationLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -86,7 +86,7 @@ export function RecentOperationLogPanel() {
       data-recent-operation-log="true"
       data-settings-top-level="operation-log"
     >
-      <summary>操作日志</summary>
+      <summary>{language === "zh-CN" ? "技术诊断日志" : "Technical diagnostic logs"}</summary>
       <div className="recent-operation-log__body">
         {isLoading ? <p className="operation-center-empty">{t("operationCenterLoading")}</p> : null}
         {!isLoading && loadError ? (

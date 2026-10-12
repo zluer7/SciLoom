@@ -2,6 +2,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import type { Review } from "../types/planning";
 import {
   activatePlanningRepositoryProducerWriter,
+  bootstrapPlanningSQLitePersistence,
   getPlanningRepositoryEnvelope,
   revokePlanningRepositoryProducerWriter
 } from "./planningRepository";
@@ -204,9 +205,22 @@ export async function bootstrapPlanningAuthorityProducer(): Promise<void> {
   const writerSession: PlanningRepositoryWriterSession = Object.freeze({
     processGeneration: registration.processGeneration,
     producerSessionGeneration: registration.producerSessionGeneration,
-    transportGeneration: registration.transportGeneration
+    transportGeneration: registration.transportGeneration,
+    producerCapability: registration.producerCapability
   });
   privateSession = { registration, writerSession };
   activatePlanningRepositoryProducerWriter(writerSession);
+  try {
+    await bootstrapPlanningSQLitePersistence();
+  } catch (error) {
+    privateSession = undefined;
+    revokePlanningRepositoryProducerWriter(writerSession);
+    await invoke("planning_authority_revoke_producer", {
+      producerCapability: registration.producerCapability,
+      producerSessionGeneration: registration.producerSessionGeneration,
+      transportGeneration: registration.transportGeneration
+    }).catch(() => undefined);
+    throw error;
+  }
   installUnloadRevocation();
 }

@@ -55,6 +55,25 @@ function dirtySession() {
   };
 }
 
+test("dirty route leave cancellation preserves draft and never starts navigation continuation", async () => {
+  const session = dirtySession();
+  const controller = createSharedEditorLifecycleController({ listSessions: () => [session] });
+  let saves = 0, discards = 0, navigations = 0;
+  controller.register({
+    participantId: "review-current:native-session", handle: "native-session", presentationEpoch: 1,
+    readSession: () => session,
+    async save() { saves++; }, async discard() { discards++; }
+  });
+  const result = await controller.requestSequence({
+    trigger: "route-change", continuationIntent: "ROUTE_CHANGE",
+    continuation: () => { navigations++; }
+  });
+  assert.equal(result.status, "decision-required");
+  await controller.resolve(controller.getSnapshot().request.requestToken, "cancel");
+  assert.equal(navigations, 0); assert.equal(saves, 0); assert.equal(discards, 0);
+  assert.equal(session.dirty, true); assert.equal(controller.getSnapshot().request, undefined);
+});
+
 test("native close settles one exact session and consumes one final-destroy permit", async () => {
   let session = dirtySession();
   const controller = createSharedEditorLifecycleController({

@@ -61,6 +61,7 @@ export interface PlanningRepositoryStorage {
 }
 
 export interface PlanningRepositoryWriterSession {
+  readonly producerCapability?: string;
   readonly processGeneration: string;
   readonly producerSessionGeneration: number;
   readonly transportGeneration: number;

@@ -57,7 +57,7 @@ pub(crate) const SAVE_AS_D2_DURABLE_CONTAINMENT_SCHEMA_VERSION: i64 = 49;
 pub(crate) const REVIEW_LIFECYCLE_ACTION_SCHEMA_VERSION: i64 = 50;
 pub(crate) const REVIEW_PERMANENT_DELETE_FOUNDATION_SCHEMA_VERSION: i64 = 51;
 pub(crate) const EXPERIMENT_SIX_FIELD_SCHEMA_VERSION: i64 = 52;
-pub const CURRENT_SCHEMA_VERSION: i64 = super::experiment_planning_relation::VERSION;
+pub const PRE_PLANNING_SCHEMA_VERSION: i64 = super::experiment_planning_relation::VERSION;
 
 #[derive(Debug)]
 pub struct SchemaInitializationError {
@@ -352,8 +352,43 @@ INSERT OR IGNORE INTO schema_migrations (version, name)
 VALUES (33, 'experiment_run_save_as_durable_operation');
 "#;
 
+pub const CURRENT_SCHEMA_VERSION: i64 = super::ai_conversation_management::VERSION;
+
 pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
-    run_schema_stage("pragma", CURRENT_SCHEMA_VERSION, None, || {
+    run_schema_stage("planning-fk-on", CURRENT_SCHEMA_VERSION, None, || connection.execute_batch("PRAGMA foreign_keys=ON;"))?;
+    let version: i64 = connection.query_row("PRAGMA user_version", [], |r| r.get(0))
+        .map_err(|e| schema_error("source-version-unsupported", "planning-source-version", CURRENT_SCHEMA_VERSION, None, e.to_string()))?;
+    if version != CURRENT_SCHEMA_VERSION && version != super::planning_persistence::VERSION {
+        // Keep the accepted fresh/v58/v59 chain and its original gates intact.
+        run_pre_planning_migrations(connection)?;
+        let result = (|| -> SchemaResult<()> {
+            run_schema_stage("planning-schema-begin", CURRENT_SCHEMA_VERSION, None, || connection.execute_batch("BEGIN IMMEDIATE;"))?;
+            run_schema_stage("planning-schema-install", CURRENT_SCHEMA_VERSION, None, || super::planning_persistence::install_schema(connection))?;
+            run_schema_stage("planning-schema-version", CURRENT_SCHEMA_VERSION, None, || connection.pragma_update(None,"user_version",super::planning_persistence::VERSION))?;
+            run_schema_stage("planning-schema-commit", CURRENT_SCHEMA_VERSION, None, || connection.execute_batch("COMMIT;"))
+        })();
+        if result.is_err() { let _=connection.execute_batch("ROLLBACK;"); }
+        result?;
+    }
+    validate_current_schema(connection)?;
+    run_schema_stage("planning-schema-validate", CURRENT_SCHEMA_VERSION, None, || super::planning_persistence::validate_schema(connection))?;
+    run_schema_stage("planning-d4-preserved", CURRENT_SCHEMA_VERSION, None, || super::experiment_planning_relation::validate_target(connection))?;
+    let current:i64=connection.query_row("PRAGMA user_version",[],|r|r.get(0)).map_err(|e|schema_error("source-version-unsupported","conversation-source-version",CURRENT_SCHEMA_VERSION,None,e.to_string()))?;
+    if current == super::planning_persistence::VERSION {
+        let result=(|| -> SchemaResult<()> {
+            run_schema_stage("conversation-lifecycle-begin",CURRENT_SCHEMA_VERSION,None,||connection.execute_batch("BEGIN IMMEDIATE;"))?;
+            run_schema_stage("conversation-lifecycle-install",CURRENT_SCHEMA_VERSION,None,||connection.execute_batch(super::ai_conversation_management::SCHEMA))?;
+            run_schema_stage("conversation-lifecycle-version",CURRENT_SCHEMA_VERSION,None,||connection.pragma_update(None,"user_version",CURRENT_SCHEMA_VERSION))?;
+            run_schema_stage("conversation-lifecycle-commit",CURRENT_SCHEMA_VERSION,None,||connection.execute_batch("COMMIT;"))
+        })();
+        if result.is_err(){let _=connection.execute_batch("ROLLBACK;");} result?;
+    }
+    run_schema_stage("conversation-lifecycle-validate",CURRENT_SCHEMA_VERSION,None,||super::ai_conversation_management::validate_schema(connection))?;
+    Ok(())
+}
+
+pub(crate) fn run_pre_planning_migrations(connection: &Connection) -> SchemaResult<()> {
+    run_schema_stage("pragma", PRE_PLANNING_SCHEMA_VERSION, None, || {
         connection.execute_batch("PRAGMA foreign_keys = ON;")
     })?;
     let source_user_version: i64 = connection
@@ -362,13 +397,13 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
             schema_error(
                 "source-version-unsupported",
                 "source-version-read",
-                CURRENT_SCHEMA_VERSION,
+                PRE_PLANNING_SCHEMA_VERSION,
                 None,
                 error.to_string(),
             )
         })?;
-    if source_user_version == CURRENT_SCHEMA_VERSION {
-        run_schema_stage("v59-relation-contract", CURRENT_SCHEMA_VERSION, Some("experiments"), || {
+    if source_user_version == PRE_PLANNING_SCHEMA_VERSION {
+        run_schema_stage("v59-relation-contract", PRE_PLANNING_SCHEMA_VERSION, Some("experiments"), || {
             super::experiment_planning_relation::validate_target(connection)
         })?;
         validate_current_schema(connection)?;
@@ -377,18 +412,18 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
     }
     if source_user_version == AI_STANDARD_RESULT_SCHEMA_VERSION {
         validate_current_schema(connection)?;
-        run_schema_stage("v59-predecessor-admission-all-four-relations-null", CURRENT_SCHEMA_VERSION, Some("experiments"), || {
+        run_schema_stage("v59-predecessor-admission-all-four-relations-null", PRE_PLANNING_SCHEMA_VERSION, Some("experiments"), || {
             super::experiment_planning_relation::preflight(connection)
         })?;
         let upgrade = (|| -> SchemaResult<()> {
-            run_schema_stage("v59-foreign-key-suspension", CURRENT_SCHEMA_VERSION, None, || connection.execute_batch("PRAGMA foreign_keys=OFF;"))?;
-            run_schema_stage("v59-transaction-begin", CURRENT_SCHEMA_VERSION, None, || connection.execute_batch("BEGIN IMMEDIATE;"))?;
-            run_schema_stage("v59-relation-migration", CURRENT_SCHEMA_VERSION, Some("experiments"), || super::experiment_planning_relation::apply(connection))?;
-            run_schema_stage("v59-user-version", CURRENT_SCHEMA_VERSION, None, || connection.pragma_update(None, "user_version", CURRENT_SCHEMA_VERSION))?;
-            run_schema_stage("v59-transaction-commit", CURRENT_SCHEMA_VERSION, None, || connection.execute_batch("COMMIT;"))
+            run_schema_stage("v59-foreign-key-suspension", PRE_PLANNING_SCHEMA_VERSION, None, || connection.execute_batch("PRAGMA foreign_keys=OFF;"))?;
+            run_schema_stage("v59-transaction-begin", PRE_PLANNING_SCHEMA_VERSION, None, || connection.execute_batch("BEGIN IMMEDIATE;"))?;
+            run_schema_stage("v59-relation-migration", PRE_PLANNING_SCHEMA_VERSION, Some("experiments"), || super::experiment_planning_relation::apply(connection))?;
+            run_schema_stage("v59-user-version", PRE_PLANNING_SCHEMA_VERSION, None, || connection.pragma_update(None, "user_version", PRE_PLANNING_SCHEMA_VERSION))?;
+            run_schema_stage("v59-transaction-commit", PRE_PLANNING_SCHEMA_VERSION, None, || connection.execute_batch("COMMIT;"))
         })();
         if upgrade.is_err() { let _ = connection.execute_batch("ROLLBACK;"); }
-        let restore = run_schema_stage("v59-foreign-key-restore", CURRENT_SCHEMA_VERSION, None, || connection.execute_batch("PRAGMA foreign_keys=ON;"));
+        let restore = run_schema_stage("v59-foreign-key-restore", PRE_PLANNING_SCHEMA_VERSION, None, || connection.execute_batch("PRAGMA foreign_keys=ON;"));
         upgrade?;
         restore?;
         validate_current_schema(connection)?;
@@ -397,30 +432,30 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
     }
     // D4 admits one predecessor family, not an implicit chain through older data.
     if source_user_version != 0 {
-        return Err(schema_error("source-version-unsupported", "v59-predecessor-version", CURRENT_SCHEMA_VERSION, None,
+        return Err(schema_error("source-version-unsupported", "v59-predecessor-version", PRE_PLANNING_SCHEMA_VERSION, None,
             format!("Only fresh databases and admitted v58 predecessors are supported; found {source_user_version}")));
     }
     let existing_objects: i64 = connection.query_row(
         "SELECT COUNT(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'", [], |row| row.get(0)
-    ).map_err(|error| schema_error("source-version-unsupported", "v59-fresh-admission", CURRENT_SCHEMA_VERSION, None, error.to_string()))?;
+    ).map_err(|error| schema_error("source-version-unsupported", "v59-fresh-admission", PRE_PLANNING_SCHEMA_VERSION, None, error.to_string()))?;
     if existing_objects != 0 {
-        return Err(schema_error("source-version-unsupported", "v59-fresh-admission", CURRENT_SCHEMA_VERSION, None,
+        return Err(schema_error("source-version-unsupported", "v59-fresh-admission", PRE_PLANNING_SCHEMA_VERSION, None,
             "An unversioned existing schema is not a fresh database"));
     }
     if source_user_version == AI_CONTEXT_REQUEST_SCHEMA_VERSION {
         run_schema_stage(
             "v57-to-v58-foreign-key-suspension",
-            CURRENT_SCHEMA_VERSION,
+            PRE_PLANNING_SCHEMA_VERSION,
             None,
             || connection.execute_batch("PRAGMA foreign_keys=OFF;"),
         )?;
-        run_schema_stage("v57-to-v58-transaction-begin", CURRENT_SCHEMA_VERSION, None, || {
+        run_schema_stage("v57-to-v58-transaction-begin", PRE_PLANNING_SCHEMA_VERSION, None, || {
             connection.execute_batch("BEGIN IMMEDIATE;")
         })?;
         let upgrade = (|| -> SchemaResult<()> {
             apply_ai_standard_result_foundation(connection)?;
-            run_schema_stage("v58-user-version", CURRENT_SCHEMA_VERSION, None, || {
-                connection.pragma_update(None, "user_version", CURRENT_SCHEMA_VERSION)
+            run_schema_stage("v58-user-version", PRE_PLANNING_SCHEMA_VERSION, None, || {
+                connection.pragma_update(None, "user_version", PRE_PLANNING_SCHEMA_VERSION)
             })?;
             let current = super::ai_durable_foundation::standard_result_schema_is_current(connection)
                 .map_err(|error| {
@@ -448,10 +483,10 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
             let _ = connection.execute_batch("PRAGMA foreign_keys=ON;");
             return Err(error);
         }
-        run_schema_stage("v57-to-v58-transaction-commit", CURRENT_SCHEMA_VERSION, None, || {
+        run_schema_stage("v57-to-v58-transaction-commit", PRE_PLANNING_SCHEMA_VERSION, None, || {
             connection.execute_batch("COMMIT;")
         })?;
-        run_schema_stage("v57-to-v58-foreign-key-restore", CURRENT_SCHEMA_VERSION, None, || {
+        run_schema_stage("v57-to-v58-foreign-key-restore", PRE_PLANNING_SCHEMA_VERSION, None, || {
             connection.execute_batch("PRAGMA foreign_keys=ON;")
         })?;
         validate_current_schema(connection)?;
@@ -527,7 +562,7 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
         return run_migrations(connection);
     }
     if source_user_version == AI_DURABLE_FOUNDATION_SCHEMA_VERSION {
-        run_schema_stage("v55-to-v56-transaction-begin", CURRENT_SCHEMA_VERSION, None, || {
+        run_schema_stage("v55-to-v56-transaction-begin", PRE_PLANNING_SCHEMA_VERSION, None, || {
             connection.execute_batch("BEGIN IMMEDIATE;")
         })?;
         let upgrade = (|| -> SchemaResult<()> {
@@ -541,13 +576,13 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
             let _ = connection.execute_batch("ROLLBACK;");
             return Err(error);
         }
-        run_schema_stage("v55-to-v56-transaction-commit", CURRENT_SCHEMA_VERSION, None, || {
+        run_schema_stage("v55-to-v56-transaction-commit", PRE_PLANNING_SCHEMA_VERSION, None, || {
             connection.execute_batch("COMMIT;")
         })?;
         return run_migrations(connection);
     }
     if source_user_version == REVIEW_STRUCTURED_STATE_SCHEMA_VERSION {
-        run_schema_stage("v54-to-v55-transaction-begin", CURRENT_SCHEMA_VERSION, None, || {
+        run_schema_stage("v54-to-v55-transaction-begin", PRE_PLANNING_SCHEMA_VERSION, None, || {
             connection.execute_batch("BEGIN IMMEDIATE;")
         })?;
         let upgrade = (|| -> SchemaResult<()> {
@@ -570,13 +605,13 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
             let _ = connection.execute_batch("ROLLBACK;");
             return Err(error);
         }
-        run_schema_stage("v54-to-v55-transaction-commit", CURRENT_SCHEMA_VERSION, None, || {
+        run_schema_stage("v54-to-v55-transaction-commit", PRE_PLANNING_SCHEMA_VERSION, None, || {
             connection.execute_batch("COMMIT;")
         })?;
         return run_migrations(connection);
     }
     if source_user_version == FORMAL_SWITCH_FOUNDATION_SCHEMA_VERSION {
-        run_schema_stage("v53-to-v54-transaction-begin", CURRENT_SCHEMA_VERSION, None, || {
+        run_schema_stage("v53-to-v54-transaction-begin", PRE_PLANNING_SCHEMA_VERSION, None, || {
             connection.execute_batch("BEGIN IMMEDIATE;")
         })?;
         let upgrade = (|| -> SchemaResult<()> {
@@ -590,13 +625,13 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
             let _ = connection.execute_batch("ROLLBACK;");
             return Err(error);
         }
-        run_schema_stage("v53-to-v54-transaction-commit", CURRENT_SCHEMA_VERSION, None, || {
+        run_schema_stage("v53-to-v54-transaction-commit", PRE_PLANNING_SCHEMA_VERSION, None, || {
             connection.execute_batch("COMMIT;")
         })?;
         return run_migrations(connection);
     }
     if source_user_version == EXPERIMENT_SIX_FIELD_SCHEMA_VERSION {
-        run_schema_stage("v52-to-v53-transaction-begin", CURRENT_SCHEMA_VERSION, None, || {
+        run_schema_stage("v52-to-v53-transaction-begin", PRE_PLANNING_SCHEMA_VERSION, None, || {
             connection.execute_batch("BEGIN IMMEDIATE;")
         })?;
         let upgrade = (|| -> SchemaResult<()> {
@@ -627,21 +662,21 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
             let _ = connection.execute_batch("ROLLBACK;");
             return Err(error);
         }
-        run_schema_stage("v52-to-v53-transaction-commit", CURRENT_SCHEMA_VERSION, None, || {
+        run_schema_stage("v52-to-v53-transaction-commit", PRE_PLANNING_SCHEMA_VERSION, None, || {
             connection.execute_batch("COMMIT;")
         })?;
         return run_migrations(connection);
     }
     if source_user_version == REVIEW_PERMANENT_DELETE_FOUNDATION_SCHEMA_VERSION {
-        run_schema_stage("v51-to-v52-foreign-key-suspension", CURRENT_SCHEMA_VERSION, None, || {
+        run_schema_stage("v51-to-v52-foreign-key-suspension", PRE_PLANNING_SCHEMA_VERSION, None, || {
             connection.execute_batch("PRAGMA foreign_keys=OFF;")
         })?;
-        run_schema_stage("v51-to-v52-transaction-begin", CURRENT_SCHEMA_VERSION, None, || {
+        run_schema_stage("v51-to-v52-transaction-begin", PRE_PLANNING_SCHEMA_VERSION, None, || {
             connection.execute_batch("BEGIN IMMEDIATE;")
         })?;
         let upgrade = (|| -> SchemaResult<()> {
             apply_experiment_six_field_foundation(connection)?;
-            run_schema_stage("v52-foreign-key-check", CURRENT_SCHEMA_VERSION, Some("experiments"), || {
+            run_schema_stage("v52-foreign-key-check", PRE_PLANNING_SCHEMA_VERSION, Some("experiments"), || {
                 let violations: i64 = connection.query_row(
                     "SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| row.get(0)
                 )?;
@@ -666,19 +701,19 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
             let _ = connection.execute_batch("PRAGMA foreign_keys=ON;");
             return Err(error);
         }
-        run_schema_stage("v51-to-v52-transaction-commit", CURRENT_SCHEMA_VERSION, None, || {
+        run_schema_stage("v51-to-v52-transaction-commit", PRE_PLANNING_SCHEMA_VERSION, None, || {
             connection.execute_batch("COMMIT;")
         })?;
-        run_schema_stage("v51-to-v52-foreign-key-restore", CURRENT_SCHEMA_VERSION, None, || {
+        run_schema_stage("v51-to-v52-foreign-key-restore", PRE_PLANNING_SCHEMA_VERSION, None, || {
             connection.execute_batch("PRAGMA foreign_keys=ON;")
         })?;
         return run_migrations(connection);
     }
-    if source_user_version > CURRENT_SCHEMA_VERSION {
+    if source_user_version > PRE_PLANNING_SCHEMA_VERSION {
         return Err(schema_error(
             "source-version-unsupported",
             "source-version-check",
-            CURRENT_SCHEMA_VERSION,
+            PRE_PLANNING_SCHEMA_VERSION,
             None,
             "database schema version is newer than this application",
         ));
@@ -701,7 +736,7 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
                 "v50 Review lifecycle authority is invalid",
             ));
         }
-        run_schema_stage("v50-to-v51-transaction-begin", CURRENT_SCHEMA_VERSION, None, || connection.execute_batch("BEGIN IMMEDIATE;"))?;
+        run_schema_stage("v50-to-v51-transaction-begin", PRE_PLANNING_SCHEMA_VERSION, None, || connection.execute_batch("BEGIN IMMEDIATE;"))?;
         let upgrade = (|| -> SchemaResult<()> {
             run_schema_stage(
                 "review-permanent-delete-durable-authority-foundation",
@@ -715,7 +750,7 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
             Ok(())
         })();
         if let Err(error)=upgrade { let _=connection.execute_batch("ROLLBACK;"); return Err(error); }
-        run_schema_stage("v50-to-v51-transaction-commit",CURRENT_SCHEMA_VERSION,None,||connection.execute_batch("COMMIT;"))?;
+        run_schema_stage("v50-to-v51-transaction-commit",PRE_PLANNING_SCHEMA_VERSION,None,||connection.execute_batch("COMMIT;"))?;
         return run_migrations(connection);
     }
     if source_user_version == SAVE_AS_D2_DURABLE_CONTAINMENT_SCHEMA_VERSION {
@@ -734,7 +769,7 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
         }
         if super::review_lifecycle_action::legacy_v50_schema_is_current(connection).unwrap_or(false) {
             super::review_permanent_delete::apply_schema_migration(connection)
-                .map_err(|error| schema_error("migration-failed","v49-existing-contract-v51",CURRENT_SCHEMA_VERSION,Some("review_lifecycle_actions"),error.to_string()))?;
+                .map_err(|error| schema_error("migration-failed","v49-existing-contract-v51",PRE_PLANNING_SCHEMA_VERSION,Some("review_lifecycle_actions"),error.to_string()))?;
             apply_experiment_six_field_foundation(connection)?;
             connection
                 .pragma_update(None, "user_version", EXPERIMENT_SIX_FIELD_SCHEMA_VERSION)
@@ -1417,7 +1452,7 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
         }
         run_schema_stage(
             "v41-to-v42-transaction-begin",
-            CURRENT_SCHEMA_VERSION,
+            PRE_PLANNING_SCHEMA_VERSION,
             None,
             || connection.execute_batch("BEGIN IMMEDIATE;"),
         )?;
@@ -1497,7 +1532,7 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
         )?;
         return run_migrations(connection);
     }
-    run_schema_stage("transaction-begin", CURRENT_SCHEMA_VERSION, None, || {
+    run_schema_stage("transaction-begin", PRE_PLANNING_SCHEMA_VERSION, None, || {
         connection.execute_batch("BEGIN IMMEDIATE;")
     })?;
 
@@ -1878,7 +1913,7 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
         apply_ai_attachment_authorization_foundation(connection)?;
         apply_ai_context_request_foundation(connection)?;
         apply_ai_standard_result_foundation(connection)?;
-        run_schema_stage("v59-fresh-relation-contract", CURRENT_SCHEMA_VERSION, Some("experiments"), || {
+        run_schema_stage("v59-fresh-relation-contract", PRE_PLANNING_SCHEMA_VERSION, Some("experiments"), || {
             super::experiment_planning_relation::apply(connection)
         })?;
         validate_current_schema(connection)?;
@@ -1888,8 +1923,8 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
             Some("experiments"),
             || connection.execute_batch("PRAGMA defer_foreign_keys = OFF;"),
         )?;
-        run_schema_stage("schema-version", CURRENT_SCHEMA_VERSION, None, || {
-            connection.pragma_update(None, "user_version", CURRENT_SCHEMA_VERSION)
+        run_schema_stage("schema-version", PRE_PLANNING_SCHEMA_VERSION, None, || {
+            connection.pragma_update(None, "user_version", PRE_PLANNING_SCHEMA_VERSION)
         })?;
         validate_user_version(connection)?;
         Ok(())
@@ -1897,7 +1932,7 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
 
     match result {
         Ok(()) => {
-            run_schema_stage("transaction-commit", CURRENT_SCHEMA_VERSION, None, || {
+            run_schema_stage("transaction-commit", PRE_PLANNING_SCHEMA_VERSION, None, || {
                 connection.execute_batch("COMMIT;")
             })?;
             let target_current =
@@ -1907,7 +1942,7 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
                         schema_error(
                             "target-schema-invalid",
                             "post-commit-provisioning-contract-validator",
-                            CURRENT_SCHEMA_VERSION,
+                            PRE_PLANNING_SCHEMA_VERSION,
                             None,
                             error.to_string(),
                         )
@@ -1916,7 +1951,7 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
                 return Err(schema_error(
                     "target-schema-invalid",
                     "post-commit-provisioning-contract-validator",
-                    CURRENT_SCHEMA_VERSION,
+                    PRE_PLANNING_SCHEMA_VERSION,
                     None,
                     "committed provisioning contract failed exact validation",
                 ));
@@ -1927,7 +1962,7 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
                         schema_error(
                             "target-schema-invalid",
                             "post-commit-v42-validator",
-                            CURRENT_SCHEMA_VERSION,
+                            PRE_PLANNING_SCHEMA_VERSION,
                             Some("manuscript_save_as_operations"),
                             error.to_string(),
                         )
@@ -1937,7 +1972,7 @@ pub fn run_migrations(connection: &Connection) -> SchemaResult<()> {
                 return Err(schema_error(
                     "target-schema-invalid",
                     "post-commit-v42-validator",
-                    CURRENT_SCHEMA_VERSION,
+                    PRE_PLANNING_SCHEMA_VERSION,
                     Some("manuscript_save_as_operations"),
                     "committed v42 typed Save As operation schema failed exact validation",
                 ));
@@ -2164,7 +2199,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
             schema_error(
                 "DB_SCHEMA_INVARIANT_FAILED",
                 "required-table-check",
-                CURRENT_SCHEMA_VERSION,
+                PRE_PLANNING_SCHEMA_VERSION,
                 None,
                 error.to_string(),
             )
@@ -2173,7 +2208,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
             return Err(schema_error(
                 "DB_REQUIRED_TABLE_MISSING",
                 "required-table-check",
-                CURRENT_SCHEMA_VERSION,
+                PRE_PLANNING_SCHEMA_VERSION,
                 Some(table),
                 format!("required table is missing: {table}"),
             ));
@@ -2183,7 +2218,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
         schema_error(
             "DB_SCHEMA_INVARIANT_FAILED",
             "experiment-six-field-column-check",
-            CURRENT_SCHEMA_VERSION,
+            PRE_PLANNING_SCHEMA_VERSION,
             Some("experiments"),
             error.to_string(),
         )
@@ -2192,7 +2227,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
         schema_error(
             "DB_SCHEMA_INVARIANT_FAILED",
             "formal-switch-foundation-schema-check",
-            CURRENT_SCHEMA_VERSION,
+            PRE_PLANNING_SCHEMA_VERSION,
             Some("formal_switch_operations"),
             error,
         )
@@ -2200,7 +2235,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
         return Err(schema_error(
             "DB_SCHEMA_INVARIANT_FAILED",
             "formal-switch-foundation-schema-check",
-            CURRENT_SCHEMA_VERSION,
+            PRE_PLANNING_SCHEMA_VERSION,
             Some("formal_switch_operations"),
             "v53 Formal Switch foundation schema is incomplete",
         ));
@@ -2305,7 +2340,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
             schema_error(
                 "DB_SCHEMA_INVARIANT_FAILED",
                 "removed-table-check",
-                CURRENT_SCHEMA_VERSION,
+                PRE_PLANNING_SCHEMA_VERSION,
                 Some(removed_table),
                 error.to_string(),
             )
@@ -2314,7 +2349,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
         return Err(schema_error(
             "DB_SCHEMA_INVARIANT_FAILED",
             "removed-table-check",
-            CURRENT_SCHEMA_VERSION,
+            PRE_PLANNING_SCHEMA_VERSION,
             Some(removed_table),
             "removed owner-private Save As table is present",
         ));
@@ -2329,7 +2364,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
         schema_error(
             "DB_SCHEMA_INVARIANT_FAILED",
             "experiment-run-switch-recovery-column-check",
-            CURRENT_SCHEMA_VERSION,
+            PRE_PLANNING_SCHEMA_VERSION,
             Some("experiment_run_manuscript_switch_recoveries"),
             error.to_string(),
         )
@@ -2346,7 +2381,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
         schema_error(
             "DB_SCHEMA_INVARIANT_FAILED",
             "experiment-run-switch-recovery-sql-check",
-            CURRENT_SCHEMA_VERSION,
+            PRE_PLANNING_SCHEMA_VERSION,
             Some("experiment_run_manuscript_switch_recoveries"),
             error.to_string(),
         )
@@ -2371,7 +2406,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
         return Err(schema_error(
             "DB_SCHEMA_INVARIANT_FAILED",
             "experiment-run-switch-recovery-canonical-check",
-            CURRENT_SCHEMA_VERSION,
+            PRE_PLANNING_SCHEMA_VERSION,
             Some("experiment_run_manuscript_switch_recoveries"),
             "Run switch recovery schema is not canonical writeback-only",
         ));
@@ -2385,7 +2420,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
         schema_error(
             "DB_SCHEMA_INVARIANT_FAILED",
             "experiment-switch-recovery-column-check",
-            CURRENT_SCHEMA_VERSION,
+            PRE_PLANNING_SCHEMA_VERSION,
             Some("experiment_manuscript_switch_recoveries"),
             error.to_string(),
         )
@@ -2402,7 +2437,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
         schema_error(
             "DB_SCHEMA_INVARIANT_FAILED",
             "experiment-switch-recovery-sql-check",
-            CURRENT_SCHEMA_VERSION,
+            PRE_PLANNING_SCHEMA_VERSION,
             Some("experiment_manuscript_switch_recoveries"),
             error.to_string(),
         )
@@ -2429,7 +2464,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
         return Err(schema_error(
             "DB_SCHEMA_INVARIANT_FAILED",
             "experiment-switch-recovery-canonical-check",
-            CURRENT_SCHEMA_VERSION,
+            PRE_PLANNING_SCHEMA_VERSION,
             Some("experiment_manuscript_switch_recoveries"),
             "Experiment switch recovery schema is not canonical writeback-only",
         ));
@@ -2681,7 +2716,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
                 schema_error(
                     "DB_SCHEMA_INVARIANT_FAILED",
                     "required-index-check",
-                    CURRENT_SCHEMA_VERSION,
+                    PRE_PLANNING_SCHEMA_VERSION,
                     Some("manuscript_bindings"),
                     error.to_string(),
                 )
@@ -2690,7 +2725,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
             return Err(schema_error(
                 "DB_SCHEMA_INVARIANT_FAILED",
                 "required-index-check",
-                CURRENT_SCHEMA_VERSION,
+                PRE_PLANNING_SCHEMA_VERSION,
                 Some("manuscript_bindings"),
                 format!("required index is missing or malformed: {index}"),
             ));
@@ -2707,7 +2742,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
             schema_error(
                 "DB_SCHEMA_INVARIANT_FAILED",
                 "obsolete-index-check",
-                CURRENT_SCHEMA_VERSION,
+                PRE_PLANNING_SCHEMA_VERSION,
                 Some("file_refs"),
                 error.to_string(),
             )
@@ -2715,7 +2750,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
             return Err(schema_error(
                 "DB_SCHEMA_INVARIANT_FAILED",
                 "obsolete-index-check",
-                CURRENT_SCHEMA_VERSION,
+                PRE_PLANNING_SCHEMA_VERSION,
                 Some("file_refs"),
                 format!("obsolete {owner_label} per-owner manuscript index still exists"),
             ));
@@ -2728,7 +2763,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
             schema_error(
                 "DB_SCHEMA_INVARIANT_FAILED",
                 "foreign-key-check",
-                CURRENT_SCHEMA_VERSION,
+                PRE_PLANNING_SCHEMA_VERSION,
                 None,
                 error.to_string(),
             )
@@ -2737,7 +2772,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
         return Err(schema_error(
             "DB_SCHEMA_INVARIANT_FAILED",
             "foreign-key-check",
-            CURRENT_SCHEMA_VERSION,
+            PRE_PLANNING_SCHEMA_VERSION,
             None,
             format!("SQLite foreign_key_check found {foreign_key_violations} violation(s)"),
         ));
@@ -2749,7 +2784,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
             schema_error(
                 "DB_SCHEMA_INVARIANT_FAILED",
                 "foreign-key-check",
-                CURRENT_SCHEMA_VERSION,
+                PRE_PLANNING_SCHEMA_VERSION,
                 None,
                 error.to_string(),
             )
@@ -2758,7 +2793,7 @@ fn validate_current_schema(connection: &Connection) -> SchemaResult<()> {
         return Err(schema_error(
             "DB_SCHEMA_INVARIANT_FAILED",
             "foreign-key-check",
-            CURRENT_SCHEMA_VERSION,
+            PRE_PLANNING_SCHEMA_VERSION,
             None,
             "SQLite foreign_keys pragma is not enabled",
         ));
@@ -2957,18 +2992,18 @@ fn validate_user_version(connection: &Connection) -> SchemaResult<()> {
             schema_error(
                 "DB_SCHEMA_VERSION_INVALID",
                 "user-version-check",
-                CURRENT_SCHEMA_VERSION,
+                PRE_PLANNING_SCHEMA_VERSION,
                 None,
                 error.to_string(),
             )
         })?;
-    if user_version != CURRENT_SCHEMA_VERSION {
+    if user_version != PRE_PLANNING_SCHEMA_VERSION {
         return Err(schema_error(
             "DB_SCHEMA_VERSION_INVALID",
             "user-version-check",
-            CURRENT_SCHEMA_VERSION,
+            PRE_PLANNING_SCHEMA_VERSION,
             None,
-            format!("PRAGMA user_version is {user_version}, expected {CURRENT_SCHEMA_VERSION}"),
+            format!("PRAGMA user_version is {user_version}, expected {PRE_PLANNING_SCHEMA_VERSION}"),
         ));
     }
     Ok(())
@@ -2976,7 +3011,15 @@ fn validate_user_version(connection: &Connection) -> SchemaResult<()> {
 
 pub(crate) fn validate_global_schema_current(connection: &Connection) -> SchemaResult<()> {
     validate_current_schema(connection)?;
-    validate_user_version(connection)
+    let version: i64 = connection.query_row("PRAGMA user_version", [], |r| r.get(0))
+        .map_err(|e| schema_error("DB_SCHEMA_VERSION_INVALID", "user-version-check", CURRENT_SCHEMA_VERSION, None, e.to_string()))?;
+    if version != CURRENT_SCHEMA_VERSION {
+        return Err(schema_error("DB_SCHEMA_VERSION_INVALID", "user-version-check", CURRENT_SCHEMA_VERSION, None,
+            format!("PRAGMA user_version is {version}, expected {CURRENT_SCHEMA_VERSION}")));
+    }
+    run_schema_stage("planning-schema-validate", CURRENT_SCHEMA_VERSION, None,
+        || super::planning_persistence::validate_schema(connection))?;
+    run_schema_stage("conversation-lifecycle-validate",CURRENT_SCHEMA_VERSION,None,||super::ai_conversation_management::validate_schema(connection))
 }
 
 fn output_gaps_has_legacy_shape(connection: &Connection) -> Result<bool> {
@@ -4335,7 +4378,7 @@ mod tests {
             connection
                 .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
                 .expect("read current user_version"),
-            CURRENT_SCHEMA_VERSION
+            PRE_PLANNING_SCHEMA_VERSION
         );
     }
 
@@ -4364,7 +4407,12 @@ mod tests {
         let connection = Connection::open_in_memory().expect("open in-memory database");
         run_migrations(&connection).expect("create current schema");
 
-        assert_eq!(CURRENT_SCHEMA_VERSION, AI_STANDARD_RESULT_SCHEMA_VERSION);
+        assert_eq!(PRE_PLANNING_SCHEMA_VERSION, AI_STANDARD_RESULT_SCHEMA_VERSION + 1);
+        assert_eq!(CURRENT_SCHEMA_VERSION, PRE_PLANNING_SCHEMA_VERSION + 1);
+        let user_version: i64 = connection
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .expect("read installed current schema version");
+        assert_eq!(user_version, CURRENT_SCHEMA_VERSION);
         let recovery_schema: String = connection
             .query_row(
                 "SELECT sql FROM sqlite_master WHERE type='table' AND name='experiment_run_manuscript_switch_recoveries'",
@@ -5573,7 +5621,7 @@ INSERT INTO manuscript_bindings (
         let user_version: i64 = connection
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .expect("read user version");
-        assert_eq!(user_version, CURRENT_SCHEMA_VERSION);
+        assert_eq!(user_version, PRE_PLANNING_SCHEMA_VERSION);
     }
 
     #[test]
@@ -6255,7 +6303,7 @@ INSERT INTO manuscript_bindings (
                     .expect("drop LP11 table");
             }
             connection
-                .pragma_update(None, "user_version", CURRENT_SCHEMA_VERSION)
+                .pragma_update(None, "user_version", PRE_PLANNING_SCHEMA_VERSION)
                 .expect("retain latest user version");
             let error = run_migrations(&connection)
                 .expect_err("current v41 validator must not repair missing tables");
@@ -6415,7 +6463,7 @@ INSERT INTO manuscript_bindings (
             connection
                 .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
                 .unwrap(),
-            CURRENT_SCHEMA_VERSION
+            PRE_PLANNING_SCHEMA_VERSION
         );
         assert!(super::super::manuscript_save_as_operation::schema_is_current(&connection).unwrap());
         assert!(!table_exists(&connection, "experiment_manuscript_save_as_operations").unwrap());
@@ -6582,7 +6630,7 @@ INSERT INTO manuscript_bindings (
             connection
                 .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
                 .unwrap(),
-            CURRENT_SCHEMA_VERSION
+            PRE_PLANNING_SCHEMA_VERSION
         );
     }
 
@@ -6625,7 +6673,7 @@ INSERT INTO manuscript_bindings (
             connection
                 .query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0))
                 .unwrap(),
-            CURRENT_SCHEMA_VERSION
+            PRE_PLANNING_SCHEMA_VERSION
         );
     }
 
@@ -6660,7 +6708,7 @@ INSERT INTO manuscript_bindings (
                 .unwrap()
         );
 
-        for non_current_version in [41, CURRENT_SCHEMA_VERSION + 1] {
+        for non_current_version in [41, PRE_PLANNING_SCHEMA_VERSION + 1] {
             connection
                 .pragma_update(None, "user_version", non_current_version)
                 .expect("set non-current global version");
@@ -6676,7 +6724,7 @@ INSERT INTO manuscript_bindings (
         }
 
         connection
-            .pragma_update(None, "user_version", CURRENT_SCHEMA_VERSION)
+            .pragma_update(None, "user_version", PRE_PLANNING_SCHEMA_VERSION)
             .expect("restore current global version");
         connection
             .execute_batch("DROP INDEX uq_manuscript_provisioning_step_plan_operation;")

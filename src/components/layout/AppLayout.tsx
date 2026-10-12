@@ -48,7 +48,8 @@ export function AppLayout() {
     if (!isAIChatOpen) return;
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (document.querySelector('[role="alertdialog"], [role="dialog"], [role="menu"]')) return;
       if (pendingAICloseIntent) {
         setPendingAICloseIntent(null);
         return;

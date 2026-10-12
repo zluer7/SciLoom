@@ -1088,7 +1088,19 @@ fn formal_switch_foundation_v52_migration_is_atomic_and_drain_failure_rolls_back
         before.target_owner_cutover_admission,
         TargetOwnerCutoverAdmission::ClosedNotReady
     );
-    schema::run_migrations(&success).expect("v52 to v53");
+    // This legacy component fixture is independent of supported global predecessors.
+    let global_error = schema::run_migrations(&success)
+        .expect_err("global bootstrap must continue rejecting v52");
+    assert_eq!(global_error.code, "source-version-unsupported");
+    assert_eq!(global_error.stage, "v59-predecessor-version");
+    assert!(!schema_is_current(&success).unwrap());
+
+    let migrate_component = |connection: &Connection| -> Result<(), String> {
+        let transaction = connection.unchecked_transaction().map_err(|error| error.to_string())?;
+        super::formal_switch_foundation::apply_schema_migration(&transaction)?;
+        transaction.commit().map_err(|error| error.to_string())
+    };
+    migrate_component(&success).expect("install v53 component in isolated transaction");
     assert!(schema_is_current(&success).unwrap());
 
     let blocked = current_connection();
@@ -1112,7 +1124,7 @@ fn formal_switch_foundation_v52_migration_is_atomic_and_drain_failure_rolls_back
            'default','1','default','managed','target','1','target','managed','[]','e','p','[]',1,'now','d',0,
            'r','d','d2','r2','d3',0,'old.md','target.md','default.md','c','now','now');"
     ).expect("seed unresolved old-family row");
-    let error = schema::run_migrations(&blocked).expect_err("drain gate must block migration");
+    let error = migrate_component(&blocked).expect_err("drain gate must block migration");
     assert!(
         error
             .to_string()
@@ -1131,4 +1143,44 @@ fn formal_switch_foundation_v52_migration_is_atomic_and_drain_failure_rolls_back
         )
         .unwrap();
     assert_eq!((user_version, generic_table, migration_row), (52, 0, 0));
+
+    let retained_phase: String = blocked
+        .query_row(
+            "SELECT phase FROM experiment_manuscript_switch_recoveries WHERE operation_id='old-unresolved'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(retained_phase, "prepared");
+
+    let ddl_failure = current_connection();
+    downgrade_empty_current_database_to_v52(&ddl_failure);
+    ddl_failure.execute_batch(
+        "CREATE TRIGGER test_reject_v53_migration_receipt
+         BEFORE INSERT ON schema_migrations WHEN NEW.version=53
+         BEGIN SELECT RAISE(ABORT,'TEST_V53_RECEIPT_FAILURE'); END;"
+    ).expect("inject failure after component DDL");
+    let error = migrate_component(&ddl_failure).expect_err("partial DDL must roll back");
+    assert!(error.contains("TEST_V53_RECEIPT_FAILURE"), "{error}");
+    assert_eq!(
+        ddl_failure.query_row("PRAGMA user_version", [], |row| row.get::<_, i64>(0)).unwrap(),
+        52
+    );
+    assert_eq!(
+        ddl_failure.query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='formal_switch_operations'",
+            [],
+            |row| row.get::<_, i64>(0),
+        ).unwrap(),
+        0
+    );
+    assert_eq!(
+        ddl_failure.query_row("SELECT COUNT(*) FROM schema_migrations WHERE version=53", [], |row| row.get::<_, i64>(0)).unwrap(),
+        0
+    );
+    assert!(!ddl_failure.prepare("PRAGMA table_info(operation_logs)").unwrap()
+        .query_map([], |row| row.get::<_, String>(1)).unwrap()
+        .collect::<Result<Vec<_>, _>>().unwrap()
+        .iter().any(|column| column == "formal_switch_operation_id"));
+
 }

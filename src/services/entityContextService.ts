@@ -417,6 +417,7 @@ async function getOutgoingLiteratureLinkSummaries(
   }
 
   const links = await literatureService.queryLiteratureLinks({ literatureId: entityId });
+  if (links.length === 0) return [];
   const literatureSummary = await getEntityTargetSummary("literature", entityId);
 
   return Promise.all(
@@ -449,6 +450,7 @@ async function getIncomingLiteratureLinkSummaries(
   }
 
   const links = await literatureService.getLinksByTarget(targetType, entityId);
+  if (links.length === 0) return [];
   const targetSummary = await getEntityTargetSummary(entityType, entityId);
 
   return Promise.all(
@@ -523,6 +525,15 @@ export async function getEvidenceSummariesForEntity(
     getBackReferenceSummaries(entityType, entityId)
   ]);
 
+  return evidenceFromLinks(entityType, entityId, outgoingLinks, incomingLinks);
+}
+
+function evidenceFromLinks(
+  entityType: EntityType,
+  entityId: EntityId,
+  outgoingLinks: LinkedEntitySummary[],
+  incomingLinks: LinkedEntitySummary[]
+): EvidenceSummary[] {
   return [...outgoingLinks, ...incomingLinks]
     .filter(
       (link) =>
@@ -535,12 +546,14 @@ export async function getEntityCrossModuleContext(
   entityType: EntityType,
   entityId: EntityId
 ): Promise<EntityCrossModuleContext> {
-  const [entity, outgoingLinks, incomingLinks, evidenceSummaries] = await Promise.all([
+  const [entity, outgoingLinks, incomingLinks] = await Promise.all([
     getEntityTargetSummary(entityType, entityId),
     getLinkedEntitySummaries(entityType, entityId),
-    getBackReferenceSummaries(entityType, entityId),
-    getEvidenceSummariesForEntity(entityType, entityId)
+    getBackReferenceSummaries(entityType, entityId)
   ]);
+  // Reuse only this invocation's fresh canonical links, including endpoint
+  // identity/missing metadata. The standalone evidence reader still reads fresh.
+  const evidenceSummaries = evidenceFromLinks(entityType, entityId, outgoingLinks, incomingLinks);
   const missingReferences = uniqueMissingReferences([
     ...(entity.sourceAvailable ? [] : [missingReferenceForSummary(entity)]),
     ...missingReferencesForLinks(outgoingLinks),

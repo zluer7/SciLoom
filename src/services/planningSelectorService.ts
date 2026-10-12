@@ -1463,7 +1463,7 @@ function routinePeriodBounds(value: string | Date, frequency: RoutineFrequency) 
   };
 }
 
-function routineAppliesOn(routine: ResearchRoutine, referenceDate: string | Date) {
+export function routineAppliesOn(routine: ResearchRoutine, referenceDate: string | Date) {
   const date = referenceDate instanceof Date ? toLocalDateKey(referenceDate) : referenceDate.slice(0, 10);
   return (!routine.startDate || routine.startDate.slice(0, 10) <= date) &&
     (!routine.endDate || routine.endDate.slice(0, 10) >= date);
@@ -1478,7 +1478,7 @@ function latestRoutineCheckIn(checkIns: RoutineCheckIn[]) {
   )[0];
 }
 
-function buildRoutineCurrentPeriodSummary(
+export function buildRoutineCurrentPeriodSummary(
   routine: ResearchRoutine,
   checkIns: RoutineCheckIn[],
   referenceDate: string | Date
@@ -1927,8 +1927,16 @@ export async function getReviewBasicContext(
 export async function getProjectResearchContext(
   projectId: EntityId
 ): Promise<ProjectResearchContext | null> {
+  return readProjectResearchContext(projectId, getProjectDetailContext(projectId));
+}
+
+// Private request composition: callers still perform a fresh canonical read.
+async function readProjectResearchContext(
+  projectId: EntityId,
+  detailRequest: Promise<ProjectDetailContext | null>
+): Promise<ProjectResearchContext | null> {
   const [detail, routineSummary] = await Promise.all([
-    getProjectDetailContext(projectId),
+    detailRequest,
     getProjectRoutineSummary(projectId)
   ]);
   if (!detail) {
@@ -2031,13 +2039,14 @@ export async function getReviewAggregationContext(
     return null;
   }
 
+  const projectDetailRequest = getProjectDetailContext(basic.review.projectId);
   const [projectDetail, projectTasks, projectResearch] = await Promise.all([
-    getProjectDetailContext(basic.review.projectId),
+    projectDetailRequest,
     planningService.queryTasks({
       projectId: basic.review.projectId,
       includeArchived: true
     }),
-    getProjectResearchContext(basic.review.projectId)
+    readProjectResearchContext(basic.review.projectId, projectDetailRequest)
   ]);
   const periodOptions = reviewPeriodOptions(basic.review);
   const hasPeriod = hasDateRange(periodOptions);

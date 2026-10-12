@@ -577,6 +577,23 @@ pub(crate) struct PlanningAuthorityTransportFoundation {
 }
 
 impl PlanningAuthorityTransportFoundation {
+    // Hold the registration lock through the synchronous database transaction:
+    // a replacement/revocation cannot race past writer admission.
+    pub(crate) fn with_current_writer<T>(
+        &self,
+        window: &str,
+        session: &crate::db::planning_persistence::WriterSession,
+        operation: impl FnOnce() -> Result<T, String>,
+    ) -> Result<T, String> {
+        let state = self.state.lock().map_err(|_| "PLANNING_REGISTRY_LOCK_POISONED")?;
+        if session.process_generation != self.process_generation.canonical() {
+            return Err("PLANNING_REPOSITORY_WRITER_STALE".into());
+        }
+        Self::validate_producer(&state, window, &session.producer_capability,
+            session.producer_session_generation, session.transport_generation)
+            .map_err(|_| "PLANNING_REPOSITORY_WRITER_STALE")?;
+        operation()
+    }
     pub(crate) fn new(
         process_generation: Arc<ProcessGeneration>,
         clock: Arc<dyn MonotonicClock>,
@@ -1323,6 +1340,20 @@ mod tests {
                 .get_version(),
             Some(Version::Random)
         );
+    }
+
+    #[test]
+    fn sqlite_writer_gate_rejects_replaced_session_window_and_process_before_effect() {
+        use crate::db::planning_persistence::WriterSession;
+        let f=foundation(Arc::new(TestClock::default()));
+        let registration=register(&f,Arc::new(CapturingSender::default()));
+        let session=WriterSession {process_generation:registration.process_generation,producer_session_generation:registration.producer_session_generation,transport_generation:registration.transport_generation,producer_capability:registration.producer_capability};
+        assert_eq!(f.with_current_writer("main",&session,||Ok(7)).unwrap(),7);
+        assert!(f.with_current_writer::<()>("secondary",&session,||panic!("must not write")).is_err());
+        let mut wrong=session.clone();wrong.process_generation="stale-process".into();
+        assert!(f.with_current_writer::<()>("main",&wrong,||panic!("must not write")).is_err());
+        register(&f,Arc::new(CapturingSender::default()));
+        assert!(f.with_current_writer::<()>("main",&session,||panic!("must not write")).is_err());
     }
 
     #[test]

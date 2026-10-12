@@ -40,7 +40,6 @@ import {
   isRouteResearchTraceDefaultDisplayed,
   saveResearchTraceDisplayPreference
 } from "../../services/projectResearchTracePreferenceUiService";
-import type { OutputGapFeedbackGapSummary } from "../../services/outputGapFeedbackSelectorService";
 import { outputGapFeedbackCardSelectorService } from "../../services/outputGapFeedbackCardSelectorService";
 import type { PlanningFeedbackCardSummary } from "../../services/outputGapFeedbackCardSelectorService";
 import { outputGapFeedbackCardService } from "../../services/outputGapFeedbackCardService";
@@ -56,7 +55,6 @@ import type {
   RouteCheckpoint,
   RouteCheckpointProgressSummary,
   RouteCheckpointStatus,
-  RouteNodeTaskSummary,
   OutputGapFeedbackCard,
   WriteFeedbackResult,
   WorkStatus
@@ -420,17 +418,13 @@ export function RoutesPage() {
   const [checkpointTitleError, setCheckpointTitleError] = useState("");
   const [routeSearchText, setRouteSearchText] = useState("");
   const [routeFilter, setRouteFilter] = useState<RouteFilterKey>("all");
-  const [routeOutputGapSummaries, setRouteOutputGapSummaries] = useState<
-    Record<string, OutputGapFeedbackGapSummary[]>
-  >({});
   const [routeFeedbackCardSummary, setRouteFeedbackCardSummary] =
     useState<PlanningFeedbackCardSummary | null>(null);
   const [routeCheckpointSummaries, setRouteCheckpointSummaries] = useState<
     Record<string, RouteCheckpointProgressSummary>
   >({});
-  const [routeTaskSummaries, setRouteTaskSummaries] = useState<
-    Record<string, RouteNodeTaskSummary>
-  >({});
+  const [isDeleteImpactLoading, setIsDeleteImpactLoading] = useState(false);
+  const deleteIntentRef = useRef({ generation: 0, owner: "", busy: false });
   const [collapsedGroups, setCollapsedGroups] = useState<Record<RouteGroupKey, boolean>>({
     completed: true,
     active: false,
@@ -471,7 +465,7 @@ export function RoutesPage() {
 
       try {
         const [pageModel, routeNodes] = await Promise.all([
-          planningPageAdapterService.getPlanningRoutesPageModel(),
+          planningPageAdapterService.getPlanningRoutesPageDisplayModel(),
           planningService.queryRouteNodes({
             includeArchived: true,
             includeDeleted: true
@@ -523,9 +517,7 @@ export function RoutesPage() {
 
         setProjects(projectRows);
         setRouteItems(pageModel.routeNodes);
-        setRouteOutputGapSummaries(pageModel.outputGapSummariesByRouteNodeId);
         setRouteCheckpointSummaries(pageModel.checkpointSummariesByRouteNodeId);
-        setRouteTaskSummaries(pageModel.taskSummariesByRouteNodeId);
         setSelectedProjectId(requestedProjectId);
         setResearchProgressState({
           projectId: requestedProjectId,
@@ -592,7 +584,11 @@ export function RoutesPage() {
 
   useEffect(() => {
     requestCoordinator.activate();
-    return () => requestCoordinator.dispose();
+    return () => {
+      requestCoordinator.dispose();
+      deleteIntentRef.current.generation++;
+      deleteIntentRef.current.owner = "";
+    };
   }, [requestCoordinator]);
 
   useEffect(() => {
@@ -812,6 +808,7 @@ export function RoutesPage() {
   }
 
   function openCreateModal() {
+    invalidateDeleteIntent();
     researchTracePreferenceRequestRef.current = "";
     setEditingId(null);
     setRouteResearchTraceDisplayTouched(false);
@@ -845,6 +842,7 @@ export function RoutesPage() {
   );
 
   function openEditModal(item: PlanningRouteEntry) {
+    invalidateDeleteIntent(`${item.projectId}:${item.id}`);
     const requestKey = `${item.projectId}:route:${item.id}`;
     researchTracePreferenceRequestRef.current = requestKey;
     setEditingId(item.id);
@@ -883,6 +881,7 @@ export function RoutesPage() {
   }
 
   function closeModal() {
+    invalidateDeleteIntent();
     researchTracePreferenceRequestRef.current = "";
     setEditingId(null);
     setRouteResearchTraceDisplayTouched(false);
@@ -999,10 +998,16 @@ export function RoutesPage() {
     });
   }
 
-  function buildRouteDeletePreview(route: PlanningRouteEntry): OperationImpactPreview {
-    const checkpointCount = routeCheckpointSummaries[route.id]?.total ?? 0;
-    const taskCount = routeTaskSummaries[route.id]?.total ?? 0;
-    const gapCount = routeOutputGapSummaries[route.id]?.length ?? 0;
+  function invalidateDeleteIntent(owner = "") {
+    deleteIntentRef.current = { generation: deleteIntentRef.current.generation + 1, owner, busy: false };
+    setIsDeleteImpactLoading(false);
+    operationConfirm.cancel();
+  }
+
+  function buildRouteDeletePreview(
+    route: PlanningRouteEntry,
+    { checkpointCount, taskCount, gapCount }: { checkpointCount: number; taskCount: number; gapCount: number }
+  ): OperationImpactPreview {
 
     return createOperationImpactPreview({
       operationId: "planning.routeNode.delete",
@@ -1139,16 +1144,25 @@ export function RoutesPage() {
   }
 
   async function handleDeleteRoute(route: PlanningRouteEntry) {
-    const preview = buildRouteDeletePreview(route);
-    const confirmed = await operationConfirm.requestConfirmation(preview);
-    if (!confirmed) {
-      feedbackCenter.pushWriteFeedback(
-        createOperationCancelledFeedback(preview, t("routeDeleteCancelled"))
-      );
-      return;
-    }
-
+    const intent = deleteIntentRef.current;
+    const owner = `${route.projectId}:${route.id}`;
+    if (intent.busy || intent.owner !== owner) return;
+    const generation = intent.generation;
+    const requestToken = { requestId: researchProgressState.requestId ?? -1, requestedProjectId: route.projectId };
+    const isSameIntent = () => deleteIntentRef.current.generation === generation && deleteIntentRef.current.owner === owner;
+    const isCurrent = () => isSameIntent() && requestCoordinator.isCurrent(requestToken);
+    intent.busy = true;
+    setIsDeleteImpactLoading(true);
     try {
+      const counts = await planningPageAdapterService.readRouteDeleteImpactCounts(route.id, route.projectId);
+      if (!isCurrent()) return;
+      const preview = buildRouteDeletePreview(route, counts);
+      const confirmed = await operationConfirm.requestConfirmation(preview);
+      if (!isCurrent()) return;
+      if (!confirmed) {
+        feedbackCenter.pushWriteFeedback(createOperationCancelledFeedback(preview, t("routeDeleteCancelled")));
+        return;
+      }
       const deletedAt = new Date().toISOString();
       const deleted = await planningService.deleteRouteNode(route.id);
       let feedback = createWriteFeedbackResult<PlanningRouteEntry>({
@@ -1214,7 +1228,12 @@ export function RoutesPage() {
       }
       feedbackCenter.pushWriteFeedback(feedback);
     } catch (error) {
-      feedbackCenter.consumeWriteError(error, "planning.deleteRouteNode");
+      if (isCurrent()) feedbackCenter.consumeWriteError(error, "planning.deleteRouteNode");
+    } finally {
+      if (isSameIntent()) {
+        deleteIntentRef.current.busy = false;
+        setIsDeleteImpactLoading(false);
+      }
     }
   }
 
@@ -2144,6 +2163,7 @@ export function RoutesPage() {
 
             <DataClearFooterRow
               className="route-editor-modal__footer"
+              deleteDisabled={isDeleteImpactLoading}
               contextKey={`route:${editingId ?? "new"}`}
               regionLabel={t("dataClearing")}
               clearLabel={t("clear")}

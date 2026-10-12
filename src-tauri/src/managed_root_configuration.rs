@@ -503,10 +503,7 @@ fn configure_first_root_at(
 
 fn command_context(app_handle: &AppHandle) -> Result<ValidationContext, String> {
     let database_path = db::database_path(app_handle)?;
-    let app_data_path = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|_| "MANAGED_ROOT_APP_DATA_UNAVAILABLE".to_string())?;
+    let app_data_path = crate::runtime_paths::selected(app_handle)?.app_data;
     let resource_path = app_handle.path().resource_dir().ok();
     Ok(ValidationContext {
         database_path,

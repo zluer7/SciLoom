@@ -1,9 +1,11 @@
-use super::open_connection;
+#[cfg(test)]
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
+#[cfg(test)]
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use std::time::Duration;
-use tauri::AppHandle;
 
+#[cfg(test)]
 const RUN_KEYS: [&str; 6] = [
     "conditionSummary",
     "variableParameterSummary",
@@ -13,6 +15,7 @@ const RUN_KEYS: [&str; 6] = [
     "summaryOther",
 ];
 
+#[cfg(test)]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ExperimentRunOutlineReplacement {
@@ -21,6 +24,7 @@ pub(crate) struct ExperimentRunOutlineReplacement {
     pub(crate) value: Option<String>,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ExperimentRunSwitchAudit {
@@ -29,6 +33,7 @@ pub(crate) struct ExperimentRunSwitchAudit {
     pub(crate) source: String,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ExperimentRunSwitchTransactionInput {
@@ -56,6 +61,7 @@ pub(crate) struct ExperimentRunSwitchTransactionInput {
     pub(crate) audit: ExperimentRunSwitchAudit,
 }
 
+#[cfg(test)]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ExperimentRunSwitchTransactionResult {
@@ -69,6 +75,7 @@ pub(crate) struct ExperimentRunSwitchTransactionResult {
     pub(crate) binding_updated_at: String,
 }
 
+#[cfg(test)]
 #[derive(Debug)]
 struct FileRefRow {
     owner_type: String,
@@ -81,6 +88,7 @@ struct FileRefRow {
     deleted_at: Option<String>,
 }
 
+#[cfg(test)]
 fn validate_input(input: &ExperimentRunSwitchTransactionInput) -> Result<(), String> {
     if input.owner_type != "experimentRun"
         || input.manuscript_channel != "primary"
@@ -114,6 +122,7 @@ fn validate_input(input: &ExperimentRunSwitchTransactionInput) -> Result<(), Str
     Ok(())
 }
 
+#[cfg(test)]
 fn file_ref(
     transaction: &rusqlite::Transaction<'_>,
     id: &str,
@@ -141,6 +150,7 @@ fn file_ref(
         .map_err(|error| format!("RUN_SWITCH_FILE_REF_READ_FAILED: {error}"))
 }
 
+#[cfg(test)]
 fn validate_run_file(
     row: Option<FileRefRow>,
     input: &ExperimentRunSwitchTransactionInput,
@@ -168,6 +178,7 @@ fn validate_run_file(
     Ok(row)
 }
 
+#[cfg(test)]
 fn replacement_value(replacement: &ExperimentRunOutlineReplacement) -> Option<String> {
     match replacement.action.as_str() {
         "set" => replacement.value.clone(),
@@ -176,6 +187,7 @@ fn replacement_value(replacement: &ExperimentRunOutlineReplacement) -> Option<St
     }
 }
 
+#[cfg(test)]
 pub(crate) fn commit_experiment_run_switch_in_connection(
     connection: &mut Connection,
     input: &ExperimentRunSwitchTransactionInput,
@@ -437,13 +449,4 @@ pub(crate) fn commit_experiment_run_switch_in_connection(
         run_updated_at: input.occurred_at.clone(),
         binding_updated_at: input.occurred_at.clone(),
     })
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub(crate) fn commit_experiment_run_manuscript_switch(
-    app_handle: AppHandle,
-    input: ExperimentRunSwitchTransactionInput,
-) -> Result<ExperimentRunSwitchTransactionResult, String> {
-    let mut connection = open_connection(&app_handle)?;
-    commit_experiment_run_switch_in_connection(&mut connection, &input)
 }

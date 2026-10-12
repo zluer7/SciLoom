@@ -1,9 +1,11 @@
-use super::open_connection;
+#[cfg(test)]
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
+#[cfg(test)]
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use std::time::Duration;
-use tauri::AppHandle;
 
+#[cfg(test)]
 const EXPERIMENT_KEYS: [&str; 6] = [
     "purposeAndQuestion",
     "conditionSummary",
@@ -13,6 +15,7 @@ const EXPERIMENT_KEYS: [&str; 6] = [
     "other",
 ];
 
+#[cfg(test)]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ExperimentOutlineReplacement {
@@ -21,6 +24,7 @@ pub(crate) struct ExperimentOutlineReplacement {
     pub(crate) value: Option<String>,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ExperimentSwitchAudit {
@@ -29,6 +33,7 @@ pub(crate) struct ExperimentSwitchAudit {
     pub(crate) source: String,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExperimentOwnerSwitchReplacementInput {
@@ -54,6 +59,7 @@ pub struct ExperimentOwnerSwitchReplacementInput {
     pub(crate) audit: ExperimentSwitchAudit,
 }
 
+#[cfg(test)]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExperimentOwnerSwitchPostVerify {
@@ -67,6 +73,7 @@ pub struct ExperimentOwnerSwitchPostVerify {
     binding_updated_at: String,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExperimentOwnerSwitchPostVerifyReadInput {
@@ -76,6 +83,7 @@ pub struct ExperimentOwnerSwitchPostVerifyReadInput {
     operation_id: String,
 }
 
+#[cfg(test)]
 #[derive(Debug, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ExperimentOutlinePostVerifyValues {
@@ -87,6 +95,7 @@ struct ExperimentOutlinePostVerifyValues {
     other: Option<String>,
 }
 
+#[cfg(test)]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExperimentOwnerSwitchDirectReadback {
@@ -107,6 +116,7 @@ pub struct ExperimentOwnerSwitchDirectReadback {
     binding_updated_at: Option<String>,
 }
 
+#[cfg(test)]
 pub(crate) fn read_experiment_owner_switch_post_verify_in_connection(
     connection: &Connection,
     input: &ExperimentOwnerSwitchPostVerifyReadInput,
@@ -225,6 +235,7 @@ pub(crate) fn read_experiment_owner_switch_post_verify_in_connection(
     })
 }
 
+#[cfg(test)]
 fn validate_input(input: &ExperimentOwnerSwitchReplacementInput) -> Result<(), String> {
     if input.owner_type != "experiment"
         || input.manuscript_channel != "primary"
@@ -252,6 +263,7 @@ fn validate_input(input: &ExperimentOwnerSwitchReplacementInput) -> Result<(), S
     Ok(())
 }
 
+#[cfg(test)]
 fn replacement_value(replacement: &ExperimentOutlineReplacement, required: bool) -> Option<String> {
     match replacement.action.as_str() {
         "set" => replacement.value.clone(),
@@ -261,6 +273,7 @@ fn replacement_value(replacement: &ExperimentOutlineReplacement, required: bool)
     }
 }
 
+#[cfg(test)]
 fn validate_file_ref(
     transaction: &rusqlite::Transaction<'_>,
     input: &ExperimentOwnerSwitchReplacementInput,
@@ -292,6 +305,7 @@ fn validate_file_ref(
     Ok(())
 }
 
+#[cfg(test)]
 pub(crate) fn commit_experiment_replacement_in_connection(
     connection: &mut Connection,
     input: &ExperimentOwnerSwitchReplacementInput,
@@ -544,24 +558,6 @@ pub(crate) fn commit_experiment_replacement_in_connection(
         owner_updated_at: verified_outline.6,
         binding_updated_at: verified_binding.2,
     })
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub fn commit_experiment_owner_switch_replacement(
-    app_handle: AppHandle,
-    input: ExperimentOwnerSwitchReplacementInput,
-) -> Result<ExperimentOwnerSwitchPostVerify, String> {
-    let mut connection = open_connection(&app_handle)?;
-    commit_experiment_replacement_in_connection(&mut connection, &input)
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub fn read_experiment_owner_switch_post_verify(
-    app_handle: AppHandle,
-    input: ExperimentOwnerSwitchPostVerifyReadInput,
-) -> Result<ExperimentOwnerSwitchDirectReadback, String> {
-    let connection = open_connection(&app_handle)?;
-    read_experiment_owner_switch_post_verify_in_connection(&connection, &input)
 }
 
 #[cfg(test)]

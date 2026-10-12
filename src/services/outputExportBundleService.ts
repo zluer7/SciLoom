@@ -99,11 +99,20 @@ function safeText(value: unknown, maxLength = SUMMARY_LIMIT) {
     : normalized;
 }
 
+// User content is not a system path field. Preserve its literal text while
+// retaining the established export whitespace and length normalization.
+function userText(value: unknown, maxLength = SUMMARY_LIMIT) {
+  if (value === undefined || value === null) return undefined;
+  const normalized = String(value).replace(/\s+/g, " ").trim();
+  return !normalized ? undefined : normalized.length > maxLength
+    ? `${normalized.slice(0, maxLength - 1)}...` : normalized;
+}
+
 function safeMarkdown(value: unknown, maxLength = 20_000) {
   if (value === undefined || value === null) {
     return undefined;
   }
-  const normalized = sanitizePathLikeText(String(value)).trim();
+  const normalized = String(value).trim();
   if (!normalized) {
     return undefined;
   }
@@ -119,7 +128,7 @@ function sanitizeWarnings(warnings: string[]) {
 function sanitizeStructuredSummary(summary: StructuredSummary): StructuredSummary {
   return summary.map((section) => ({
     key: section.key,
-    label: safeText(section.label, 120),
+    label: userText(section.label, 120),
     value: safeMarkdown(section.value, 2_000) ?? "",
     order: section.order
   }));
@@ -140,7 +149,7 @@ function pickEntityBasics(
   const base: OutputExportEntityBasics = {
     id: entity.id,
     layer,
-    title: safeText(title, 220) ?? title,
+    title: userText(title, 220) ?? "Untitled",
     status: entity.status,
     projectId: detail.projectId,
     createdAt: entity.createdAt,
@@ -249,7 +258,7 @@ function mapRelationsForExport(
     sourceId: relation.sourceId,
     targetType: relation.targetType,
     targetId: relation.targetId,
-    targetTitle: safeText(relation.targetTitle, 220),
+    targetTitle: userText(relation.targetTitle, 220),
     targetMissing: relation.targetMissing
   }));
 }
@@ -260,7 +269,7 @@ function structuredSummaryMarkdown(summary: StructuredSummary) {
   }
   return summary
     .map((section) => {
-      const label = safeText(section.label ?? section.key, 120) ?? section.key;
+      const label = userText(section.label ?? section.key, 120) ?? section.key;
       const value = safeMarkdown(section.value, 2_000) ?? "unset";
       return `- ${label}: ${value}`;
     })
@@ -279,10 +288,10 @@ function mapChainForExport(chain: OutputChainDto): OutputExportChainSummary {
     id: node.id,
     type: node.type,
     entityId: node.entityId,
-    title: safeText(node.label, 220) ?? node.id,
+    title: userText(node.label, 220) ?? node.id,
     status: node.status,
     layer: node.layer,
-    shortSummary: safeText(node.summary, SUMMARY_LIMIT),
+    shortSummary: userText(node.summary, SUMMARY_LIMIT),
     fileRefs: node.fileRefs?.map(mapFileRefForExport),
     missing: node.missing,
     partial: node.partial

@@ -41,6 +41,8 @@ struct ChatCompletionsRequest {
     response_format: Option<ChatResponseFormat>,
     #[serde(skip_serializing_if = "Option::is_none")]
     thinking: Option<ChatThinking>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    enable_thinking: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
@@ -171,7 +173,7 @@ fn provider_thinking_field(preset: ProviderPreset) -> Option<ChatThinking> {
         ProviderThinkingField::TypeDisabled => Some(ChatThinking {
             kind: "disabled".to_string(),
         }),
-        ProviderThinkingField::Omit => None,
+        ProviderThinkingField::Omit | ProviderThinkingField::EnableThinkingFalse => None,
     }
 }
 
@@ -186,6 +188,8 @@ fn build_chat_request(prompt: &str, preset: ProviderPreset) -> ChatCompletionsRe
         stream_options: None,
         response_format: None,
         thinking: provider_thinking_field(preset),
+        enable_thinking: (preset.thinking_field() == ProviderThinkingField::EnableThinkingFalse)
+            .then_some(false),
     }
 }
 
@@ -206,6 +210,8 @@ pub(crate) fn build_stream_chat_request(
         }),
         response_format,
         thinking: provider_thinking_field(preset),
+        enable_thinking: (preset.thinking_field() == ProviderThinkingField::EnableThinkingFalse)
+            .then_some(false),
     })
     .expect("canonical provider stream request must remain serializable")
 }
@@ -454,6 +460,15 @@ pub async fn run_ai_text(
     )
 }
 
+/// Test-only HTTP boundary observation; uses the production mapper and parser.
+#[cfg(test)]
+pub(crate) fn b5_offline_wire(provider: &str, model: &str, prompt: &str, body: &[u8], constrained: bool) -> Result<serde_json::Value, String> {
+    let preset = super::ai_provider_configuration::provider_model_preset(provider, model).unwrap();
+    let request = if constrained { build_stream_chat_request(prompt, preset, Some(ChatResponseFormat::json_object())) } else { serde_json::to_value(build_chat_request(prompt, preset)).unwrap() };
+    let response = parse_chat_completions_response(body, provider, model, preset.display_name())?;
+    Ok(serde_json::json!({"request":request,"response":response,"endpoint":preset.endpoint(),"controlledHttpBoundary":true}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -592,6 +607,31 @@ mod tests {
         assert_eq!(parse["response_format"]["type"], "json_object");
         assert_eq!(parse["stream"], true);
         assert_eq!(parse["thinking"]["type"], "disabled");
+    }
+
+    #[test]
+    fn b5_direct_presets_use_shared_normal_and_constrained_request_response_contracts() {
+        use crate::commands::ai_provider_configuration::{PROVIDER_QWEN, QWEN_MODEL, PROVIDER_GEMINI, GEMINI_MODEL};
+        for (provider, model) in [(PROVIDER_QWEN, QWEN_MODEL), (PROVIDER_GEMINI, GEMINI_MODEL)] {
+            let preset = provider_model_preset_for_b5(provider, model);
+            assert_exact_provider_requests(provider, model, false);
+            for request in [serde_json::to_value(build_chat_request("TEST_ONLY hello", preset)).unwrap(), build_stream_chat_request("TEST_ONLY JSON", preset, Some(ChatResponseFormat::json_object()))] {
+                assert_eq!(request.get("enable_thinking"), if provider == PROVIDER_QWEN { Some(&serde_json::Value::Bool(false)) } else { None });
+            }
+            let normalized = parse_chat_completions_response(br#"{"choices":[{"message":{"content":"TEST_ONLY answer"}}],"usage":{"prompt_tokens":2,"completion_tokens":3,"total_tokens":5}}"#, provider, model, preset.display_name()).unwrap();
+            assert_eq!(normalized.provider, provider);
+            assert_eq!(normalized.model, model);
+            assert_eq!(normalized.text, "TEST_ONLY answer");
+            assert_eq!(normalized.usage.unwrap().total_tokens, Some(5));
+            for (status, code) in [(401,"auth_error"),(403,"auth_error"),(429,"rate_limited"),(500,"provider_error"),(400,"invalid_request")] {
+                assert_eq!(error_code(&http_status_error(preset.display_name(),status)),code);
+            }
+            assert_eq!(error_code(&parse_chat_completions_response(br#"{"choices":[{"message":{"refusal":"refused","content":null}}]}"#,provider,model,preset.display_name()).unwrap_err()),"empty_content");
+        }
+    }
+
+    fn provider_model_preset_for_b5(provider: &str, model: &str) -> ProviderPreset {
+        crate::commands::ai_provider_configuration::provider_model_preset(provider, model).unwrap()
     }
 
     #[test]

@@ -1,27 +1,27 @@
 import { invoke } from "@tauri-apps/api/core";
 import { experimentService } from "./experimentService";
-import { milestoneService } from "./milestoneService";
 import { outputService } from "./outputService";
 import { planningService } from "./planningService";
-import { taskService } from "./taskService";
 import type { EntityId } from "../types";
-import type { Experiment, Milestone, ResearchOutput, ResearchTask } from "../types";
-import type { Project } from "../types/planning";
+import type { Experiment, ResearchOutput } from "../types";
+import type { Project, RouteNode, Task } from "../types/planning";
 import { getTaskTypeDisplayLabel } from "../utils/planningIdeaState";
 
 type ResearchPlanSnapshot = {
   exportedAt: string;
   schemaVersion: 1;
+  planningCollections: { milestones: "routeNodes"; tasks: "tasks" };
   scope: "all" | "project";
   projectId?: EntityId;
   projects: Project[];
-  milestones: Milestone[];
-  tasks: ResearchTask[];
+  // Historical export key; values are current RouteNode facts, preserving their type.
+  milestones: RouteNode[];
+  tasks: Task[];
   experiments: Experiment[];
   outputs: ResearchOutput[];
 };
 
-type ExportResult = {
+export type ExportResult = {
   saved: boolean;
   filePath?: string;
   message: string;
@@ -35,7 +35,7 @@ function timestampForFileName() {
   return new Date().toISOString().replace(/[:.]/g, "-");
 }
 
-function sanitizeFileName(value: string) {
+export function sanitizeFileName(value: string) {
   return value.replace(/[<>:"/\\|?*]/g, "_").replace(/\s+/g, "_").slice(0, 80);
 }
 
@@ -49,7 +49,7 @@ function downloadBlob(defaultFileName: string, contents: string, mimeType: strin
   URL.revokeObjectURL(url);
 }
 
-async function saveTextFile(defaultFileName: string, contents: string, mimeType: string) {
+export async function saveTextFile(defaultFileName: string, contents: string, mimeType: string) {
   if (isTauriRuntime()) {
     const filePath = await invoke<string | null>("save_text_file", {
       defaultFileName,
@@ -78,8 +78,8 @@ async function saveTextFile(defaultFileName: string, contents: string, mimeType:
 async function loadSnapshot(projectId?: EntityId): Promise<ResearchPlanSnapshot> {
   const [projects, milestones, tasks, experiments, outputs] = await Promise.all([
     planningService.queryProjects(),
-    milestoneService.listMilestones(),
-    taskService.listTasks(),
+    planningService.queryRouteNodes(),
+    planningService.queryTasks(),
     experimentService.listExperiments(),
     outputService.listOutputs()
   ]);
@@ -88,6 +88,7 @@ async function loadSnapshot(projectId?: EntityId): Promise<ResearchPlanSnapshot>
     return {
       exportedAt: new Date().toISOString(),
       schemaVersion: 1,
+      planningCollections: { milestones: "routeNodes", tasks: "tasks" },
       scope: "all",
       projects,
       milestones,
@@ -100,6 +101,7 @@ async function loadSnapshot(projectId?: EntityId): Promise<ResearchPlanSnapshot>
   return {
     exportedAt: new Date().toISOString(),
     schemaVersion: 1,
+    planningCollections: { milestones: "routeNodes", tasks: "tasks" },
     scope: "project",
     projectId,
     projects: projects.filter((project) => project.id === projectId),
@@ -130,13 +132,11 @@ function toMarkdown(snapshot: ResearchPlanSnapshot) {
       `- Type: ${getTaskTypeDisplayLabel(task.taskType)}`,
       `- Priority: ${task.priority}`,
       `- Status: ${task.status}`,
-      `- Start date: ${valueOrEmpty(task.startDate)}`,
+      `- Start date: ${valueOrEmpty(task.scheduledDate)}`,
       `- Due date: ${valueOrEmpty(task.dueDate)}`,
-      `- Estimated hours: ${valueOrEmpty(task.estimatedHours)}`,
-      `- Actual hours: ${valueOrEmpty(task.actualHours)}`,
       `- Acceptance criteria: ${valueOrEmpty(task.acceptanceCriteria)}`,
-      `- Blocker: ${valueOrEmpty(task.blocker)}`,
-      `- Review: ${valueOrEmpty(task.review)}`,
+      `- Blocker: ${valueOrEmpty(task.blockedReason)}`,
+      `- Review: ${valueOrEmpty(task.resultNote)}`,
       "",
       task.description
     ].join("\n")
@@ -207,6 +207,10 @@ function toOutputsCsv(outputs: ResearchOutput[]) {
 }
 
 export const exportService = {
+  async exportMarkdownText(contents: string): Promise<ExportResult> {
+    return saveTextFile("context.md", contents, "text/markdown");
+  },
+
   async listProjects() {
     return planningService.queryProjects();
   },

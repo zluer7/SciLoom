@@ -339,7 +339,8 @@ test("canonical Demo bytes, Tauri mapping, and release fallback boundary are fix
   const config = JSON.parse(readFileSync(resolve(root, "src-tauri/tauri.conf.json"), "utf8"));
   assert.deepEqual(config.bundle.resources, {
     "../demo/west-lake-vinegar-fish/project-import.json": "demo/west-lake-vinegar-fish/project-import.json",
-    "../docs/QUICK_START.md": "docs/QUICK_START.md"
+    "../docs/QUICK_START.md": "docs/QUICK_START.md",
+    "../LICENSE": "LICENSE"
   });
   const rustSource = readFileSync(resolve(root, "src-tauri/src/bundled_demo_resource.rs"), "utf8");
   assert.match(rustSource, /#\[cfg\(debug_assertions\)\]/u);

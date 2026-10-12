@@ -1,0 +1,119 @@
+.project-recent-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--appearance-border, #d9e2ec);
+  border-radius: 8px;
+  background: var(--appearance-surface, #fff);
+  padding: 12px;
+  color: var(--appearance-text-main, #334e68);
+  font-size: 12px;
+}
+
+.project-recent-plan-modes.project-visualization-switch { border-color: #e4eaf0; background: transparent; }
+.project-recent-plan-modes .project-visualization-switch-button { font-weight: 600; }
+.project-recent-plan-modes .project-visualization-switch-button-active {
+  border-color: #d9e2ec; background: #edf3f8; color: #243b53;
+}
+.project-recent-plan-list-scroll,
+.project-recent-plan-calendar-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.project-recent-plan-calendar-scroll { position: relative; overflow-anchor: none; }
+.project-recent-plan-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.project-recent-plan-table col:nth-child(1) { width: 40%; }
+.project-recent-plan-table col:nth-child(2) { width: 30%; }
+.project-recent-plan-table col:nth-child(3) { width: 20%; }
+.project-recent-plan-table col:nth-child(4) { width: 10%; }
+.project-recent-plan-table th,
+.project-recent-plan-table td { padding: 9px 8px; text-align: left; border-bottom: 1px solid #f1f5f8; }
+.project-recent-plan-table thead { position: sticky; top: 0; z-index: 1; background: #fff; color: #627d98; }
+.project-recent-plan-table thead th { text-align: center; font-weight: 500; }
+.project-recent-plan-task-label { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.project-recent-plan-task-label .status-pill { flex: 0 0 auto; }
+.project-recent-plan-title,
+.project-recent-plan-route { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-recent-plan-title { color: #102a43; font-size: 13px; font-weight: 600; }
+.project-recent-plan-route,
+.project-recent-plan-time { color: #627d98; }
+.project-recent-plan-route-colored::before {
+  content: ""; display: inline-block; width: 5px; height: 5px; margin-right: 6px;
+  border-radius: 50%; background: var(--recent-plan-route-color); vertical-align: middle;
+}
+.project-recent-plan-time { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.project-recent-plan-table .status-pill {
+  padding: 2px 6px; background: #f1f5f8; color: #526779; font-size: 11px; font-weight: 500;
+}
+.project-recent-plan-table .project-recent-plan-priority {
+  display: inline-flex; align-items: center; gap: 5px; background: transparent;
+  font-size: 11px; font-weight: 400; white-space: nowrap;
+}
+.project-recent-plan-priority::before {
+  content: ""; width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: 0.55;
+}
+.project-recent-plan-table .project-recent-plan-group th { padding: 0; background: #fafcfd; }
+.project-recent-plan-group button {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 8px; border: 0; border-radius: 0; background: transparent;
+  color: #486581; font: inherit; font-weight: 600; text-align: left;
+}
+.project-recent-plan-group-count { color: #829ab1; font-weight: 500; }
+.project-recent-plan-counts { display: flex; flex: 0 0 auto; gap: 18px; color: #627d98; padding-top: 2px; }
+.project-recent-plan-weekdays { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); text-align: center; }
+.project-recent-plan-weekdays {
+  position: sticky; top: 0; z-index: 2; padding: 6px 0;
+  background: var(--appearance-surface, #fff); border-bottom: 1px solid var(--appearance-border, #e4eaf0); color: var(--appearance-text-muted, #627d98); font-weight: 500;
+}
+.project-recent-plan-week {
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+  height: 124px; border-bottom: 1px solid #d6e0ea; border-left: 1px solid #e5ecf2;
+}
+.project-recent-plan-week-current { background-color: var(--appearance-info-surface, #eef4f8); }
+.project-recent-plan-day { min-width: 0; padding: 5px 7px; border-right: 1px solid #e5ecf2; }
+.project-recent-plan-day-header { display: flex; align-items: center; justify-content: space-between; gap: 3px; min-height: 24px; }
+.project-recent-plan-day-header time { padding: 2px 5px; border-radius: 5px; color: var(--appearance-text-muted, #627d98); line-height: 16px; font-variant-numeric: tabular-nums; }
+.project-recent-plan-day-header .project-recent-plan-today { color: #fff; }
+.project-recent-plan-today { background: #102a43; color: #fff; font-weight: 700; }
+.project-recent-plan-routines { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 4px; }
+.project-recent-plan-routine { width: 9px; height: 9px; border: 1.5px solid currentColor; border-radius: 1px; background: transparent; }
+.project-recent-plan-routine-completed { background: currentColor; }
+.project-recent-plan-day-tasks { position: relative; height: 86px; padding-top: 4px; }
+.project-recent-plan-task {
+  display: flex; align-items: center; gap: 5px; height: 20px; min-width: 0; cursor: default;
+  padding: 0 4px; margin-bottom: 2px; border-radius: 4px;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--appearance-text-muted, #627d98) 16%, var(--appearance-surface, #fff));
+  color: var(--appearance-text-main, #334e68);
+}
+.project-recent-plan-task[data-status="doing"] { background: color-mix(in srgb, var(--appearance-info-text, #1f5fae) 18%, var(--appearance-surface, #fff)); }
+.project-recent-plan-task[data-status="done"] { background: color-mix(in srgb, var(--appearance-success-text, #2f855a) 18%, var(--appearance-surface, #fff)); }
+.project-recent-plan-task[data-status="delayed"],
+.project-recent-plan-task[data-status="blocked"] { background: color-mix(in srgb, var(--appearance-warning-text, #a07816) 20%, var(--appearance-surface, #fff)); }
+.project-recent-plan-task[data-status="cancelled"],
+.project-recent-plan-task[data-status="archived"] { background: color-mix(in srgb, var(--appearance-text-muted, #627d98) 12%, var(--appearance-surface, #fff)); }
+.project-recent-plan-task-status {
+  flex: 0 0 12px; margin-left: auto; text-align: center; font-size: 12px; font-weight: 700; color: inherit;
+}
+.project-recent-plan-task-title {
+  display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1; min-width: 0; color: inherit; font-size: 11px; line-height: 20px;
+}
+.project-recent-plan-marker { flex: 0 0 8px; color: var(--recent-plan-route-color); }
+.project-recent-plan-marker-start { opacity: 0.78; }
+.project-recent-plan-marker-start::before { content: ""; display: block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.project-recent-plan-marker-due { position: relative; height: 12px; border-left: 1.5px solid currentColor; }
+.project-recent-plan-marker-due::after {
+  content: ""; position: absolute; top: 0; left: 0; width: 8px; height: 7px;
+  background: currentColor; clip-path: polygon(0 0, 100% 0, 75% 50%, 100% 100%, 0 100%);
+}
+.project-recent-plan-overflow {
+  position: absolute; right: 0; bottom: 0; color: #829ab1; font-size: 10px;
+  line-height: 14px; font-weight: 400; cursor: default;
+}

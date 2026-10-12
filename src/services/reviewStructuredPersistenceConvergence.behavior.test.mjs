@@ -79,10 +79,11 @@ test("composed Review DTO and update patch cannot round-trip second-layer state 
   assert.equal(persistedPatch.title, "Updated first layer");
 });
 
-test("legacy second-layer bytes migrate once, are scrubbed, and SQLite remains the composed read authority", async () => {
+test("legacy second-layer bytes migrate once; SQLite Planning is scrubbed and the old source stays read-only", async () => {
   const values = new Map();
   const structuredStates = new Map();
   let migrationCalls = 0;
+  let nativeEnvelope;
   const storage = {
     getItem(key) {
       return values.get(key) ?? null;
@@ -96,6 +97,17 @@ test("legacy second-layer bytes migrate once, are scrubbed, and SQLite remains t
     dispatchEvent() {},
     __TAURI_INTERNALS__: {
       async invoke(command, args) {
+        if (command === "planning_repository_read") return structuredClone(nativeEnvelope ?? null);
+        if (command === "planning_repository_import") {
+          nativeEnvelope ??= structuredClone(args.envelope);
+          return structuredClone(nativeEnvelope);
+        }
+        if (command === "planning_repository_commit") {
+          assert.equal(args.request.expectedEpoch, nativeEnvelope.repositoryEpoch);
+          assert.equal(args.request.expectedRevision, nativeEnvelope.revision);
+          nativeEnvelope = { ...nativeEnvelope, revision: (BigInt(nativeEnvelope.revision) + 1n).toString(), snapshot: structuredClone(args.request.nextSnapshot) };
+          return { status: "committed", expectedIdentity: { repositoryEpoch: args.request.expectedEpoch, revision: args.request.expectedRevision }, envelope: structuredClone(nativeEnvelope) };
+        }
         if (command === "owner_authority_try_acquire_many") {
           return {
             token: `lease-${args.requestId}`,
@@ -166,6 +178,8 @@ test("legacy second-layer bytes migrate once, are scrubbed, and SQLite remains t
     transportGeneration: 1
   });
   repository.activatePlanningRepositoryProducerWriter(session);
+  const oldSource = values.get(repository.PLANNING_STORAGE_KEY);
+  await repository.bootstrapPlanningSQLitePersistence();
 
   const converged = await repository.getPlanningRepositoryEnvelope();
   assert.equal(migrationCalls, 1);
@@ -173,8 +187,9 @@ test("legacy second-layer bytes migrate once, are scrubbed, and SQLite remains t
   assert.equal(converged.snapshot.reviews[0].outlineSections[0].content, "canonical");
   assert.equal(converged.snapshot.reviews[0].structuredRevision, 0);
 
-  const scrubbed = JSON.parse(values.get(repository.PLANNING_STORAGE_KEY));
-  assert.equal(scrubbed.revision, "1");
+  const scrubbed = structuredClone(nativeEnvelope);
+  assert.equal(scrubbed.revision, "0", "migration preserves the source CAS identity");
+  assert.equal(values.get(repository.PLANNING_STORAGE_KEY), oldSource);
   for (const key of secondLayerKeys) {
     assert.equal(Object.hasOwn(scrubbed.snapshot.reviews[0], key), false, key);
   }
@@ -188,7 +203,8 @@ test("legacy second-layer bytes migrate once, are scrubbed, and SQLite remains t
     structuredLifecycleEvidence: "forged",
     structuredLifecycleStatus: "active"
   });
-  const afterFullDtoPatch = JSON.parse(values.get(repository.PLANNING_STORAGE_KEY));
+  const afterFullDtoPatch = structuredClone(nativeEnvelope);
+  assert.equal(values.get(repository.PLANNING_STORAGE_KEY), oldSource, "no legacy dual-write");
   assert.equal(afterFullDtoPatch.snapshot.reviews[0].title, "First layer changed");
   for (const key of secondLayerKeys) {
     assert.equal(Object.hasOwn(afterFullDtoPatch.snapshot.reviews[0], key), false, key);

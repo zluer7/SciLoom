@@ -570,6 +570,33 @@ export async function getPlanningProjectsPageModel(): Promise<PlanningProjectsPa
   };
 }
 
+// The normal Routes view consumes checkpoint progress, but not deletion-impact
+// hydration. Keep the full public model below for callers that need those facts.
+export async function getPlanningRoutesPageDisplayModel(): Promise<Pick<
+  PlanningRoutesPageModel, "projects" | "routeNodes" | "checkpointSummariesByRouteNodeId"
+>> {
+  const base = await loadPlanningPageBase();
+  return {
+    projects: base.projects,
+    routeNodes: base.routeNodes,
+    checkpointSummariesByRouteNodeId: await planningSelectorService.getRouteCheckpointProgressSummaries(
+      base.routeNodes.map(route => route.id)
+    )
+  };
+}
+
+export async function readRouteDeleteImpactCounts(routeId: EntityId, projectId: EntityId) {
+  const route = await planningService.getRouteNodeById(routeId);
+  if (!route || route.projectId !== projectId) throw new Error("route_delete_owner_unavailable");
+  const [checkpoints, tasks, gaps] = await Promise.all([
+    planningSelectorService.getRouteCheckpointProgressSummaries([routeId]),
+    planningSelectorService.getRouteNodeTaskSummaries([routeId]),
+    outputGapFeedbackSelectorService.getRouteNodeOutputGapFeedbackSummary(routeId)
+  ]);
+  if (!checkpoints[routeId] || !tasks[routeId]) throw new Error("route_delete_impact_unavailable");
+  return { checkpointCount: checkpoints[routeId].total, taskCount: tasks[routeId].total, gapCount: gaps.outputGaps.length };
+}
+
 export async function getPlanningRoutesPageModel(): Promise<PlanningRoutesPageModel> {
   const base = await loadPlanningPageBase();
   const routeNodeIds = base.routeNodes.map((routeNode) => routeNode.id);
@@ -597,10 +624,12 @@ export async function getPlanningRoutesPageModel(): Promise<PlanningRoutesPageMo
   };
 }
 
-export async function getPlanningTasksPageModel(): Promise<PlanningTasksPageModel> {
+export async function getPlanningTasksPageModel(
+  options: { includeOutputGapSummaries?: boolean } = {}
+): Promise<PlanningTasksPageModel> {
   const base = await loadPlanningPageBase();
   const [outputGapPairs, routineSummaryPairs] = await Promise.all([
-    Promise.all(
+    options.includeOutputGapSummaries === false ? Promise.resolve([]) : Promise.all(
       base.tasks.map(async (task) => {
         const summaries =
           await outputGapFeedbackSelectorService.getTaskOutputGapFeedbackSummary(task.id);
@@ -639,6 +668,8 @@ export const planningPageAdapterService = {
   getPlanningProjectOverviewSummaries,
   getPlanningProjectsPageModel,
   getPlanningRoutesPageModel,
+  getPlanningRoutesPageDisplayModel,
+  readRouteDeleteImpactCounts,
   getPlanningTasksPageModel,
   getPlanningReviewTargetsModel
 };

@@ -163,6 +163,9 @@ export type RoutineFrequency = "daily" | "weekly" | "monthly";
 
 export type RoutineTargetType = "count" | "description";
 
+export const ROUTINE_CALENDAR_COLOR_KEYS = ["sage", "steel", "lavender", "sand", "rose"] as const;
+export type RoutineCalendarColor = typeof ROUTINE_CALENDAR_COLOR_KEYS[number];
+
 export interface ResearchRoutine extends BaseEntity {
   projectId?: EntityId;
   frequency: RoutineFrequency;
@@ -170,6 +173,9 @@ export interface ResearchRoutine extends BaseEntity {
   targetCount?: number;
   targetDescription?: string;
   isActive: boolean;
+  // UI display preferences only; absent on older records means hidden / sage.
+  showInRollingWeek?: boolean;
+  rollingWeekColor?: RoutineCalendarColor;
   startDate?: ISODateString;
   endDate?: ISODateString;
   orderIndex: number;

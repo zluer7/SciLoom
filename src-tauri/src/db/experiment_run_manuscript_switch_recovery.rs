@@ -1,15 +1,16 @@
+#[cfg(test)]
 use super::experiment_run_manuscript_switch::{
     commit_experiment_run_switch_in_connection, ExperimentRunOutlineReplacement,
     ExperimentRunSwitchAudit, ExperimentRunSwitchTransactionInput,
 };
-use super::open_connection;
+#[cfg(test)]
 use super::formal_switch_recovery::{
-    is_canonical_formal_switch_phase, is_valid_formal_switch_transition,
     safe_formal_switch_file_name, safe_formal_switch_value,
 };
+#[cfg(test)]
 use rusqlite::{params, Connection, OptionalExtension};
+#[cfg(test)]
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
 
 pub(crate) const RECOVERY_SCHEMA_SQL: &str = r#"
 CREATE TABLE IF NOT EXISTS experiment_run_manuscript_switch_recoveries (
@@ -93,6 +94,7 @@ INSERT OR IGNORE INTO schema_migrations (version, name)
 VALUES (32, 'experiment_run_switch_durable_recovery');
 "#;
 
+#[cfg(test)]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ExperimentRunSwitchRecoveryPrepareInput {
@@ -147,6 +149,7 @@ pub(crate) struct ExperimentRunSwitchRecoveryPrepareInput {
     pub(crate) created_at: String,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ExperimentRunSwitchRecoveryRecord {
@@ -173,6 +176,7 @@ pub(crate) struct ExperimentRunSwitchRecoveryRecord {
     pub(crate) updated_at: String,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RecoveryRow {
@@ -181,6 +185,7 @@ pub(crate) struct RecoveryRow {
     pub(crate) old_current_post_revision: Option<String>,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ExperimentRunSwitchPostVerifyResult {
@@ -195,19 +200,7 @@ pub(crate) struct ExperimentRunSwitchPostVerifyResult {
     pub(crate) safe_diagnostic_code: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct ExperimentRunSwitchRecoveryPhaseInput {
-    pub(crate) operation_id: String,
-    pub(crate) expected_phase: String,
-    pub(crate) next_phase: String,
-    pub(crate) occurred_at: String,
-    pub(crate) old_current_post_revision: Option<String>,
-    pub(crate) writeback_verification_result: Option<String>,
-    pub(crate) last_error_code: Option<String>,
-    pub(crate) last_diagnostic_summary: Option<String>,
-}
-
+#[cfg(test)]
 fn digest_text(value: &str) -> String {
     let mut hash = 0xcbf29ce484222325u64;
     for byte in value.as_bytes() {
@@ -217,6 +210,7 @@ fn digest_text(value: &str) -> String {
     format!("fnv1a64:{hash:016x}")
 }
 
+#[cfg(test)]
 fn validate_prepare(input: &ExperimentRunSwitchRecoveryPrepareInput) -> Result<(), String> {
     let replacements: Vec<ExperimentRunOutlineReplacement> =
         serde_json::from_str(&input.outline_replacements_json)
@@ -245,6 +239,7 @@ pub(crate) fn ensure_recovery_schema_in_connection(connection: &Connection) -> R
         .map_err(|_| "RUN_SWITCH_RECOVERY_PERSIST_FAILED".to_string())
 }
 
+#[cfg(test)]
 fn summary_from_input(input: &ExperimentRunSwitchRecoveryPrepareInput) -> ExperimentRunSwitchRecoveryRecord {
     ExperimentRunSwitchRecoveryRecord {
         recovery_id: input.recovery_id.clone(),
@@ -271,6 +266,7 @@ fn summary_from_input(input: &ExperimentRunSwitchRecoveryPrepareInput) -> Experi
     }
 }
 
+#[cfg(test)]
 pub(crate) fn prepare_experiment_run_switch_recovery_in_connection(
     connection: &Connection,
     input: &ExperimentRunSwitchRecoveryPrepareInput,
@@ -346,6 +342,7 @@ pub(crate) fn prepare_experiment_run_switch_recovery_in_connection(
     Ok(summary_from_input(input))
 }
 
+#[cfg(test)]
 fn recovery_row(connection: &Connection, operation_id: &str) -> Result<RecoveryRow, String> {
     connection.query_row(
         "SELECT recovery_id,operation_id,run_id,experiment_id,project_id,binding_id,
@@ -397,11 +394,13 @@ fn recovery_row(connection: &Connection, operation_id: &str) -> Result<RecoveryR
         .ok_or_else(|| "RUN_SWITCH_RECOVERY_NOT_FOUND".to_string())
 }
 
+#[cfg(test)]
 fn replacements(row: &RecoveryRow) -> Result<Vec<ExperimentRunOutlineReplacement>, String> {
     serde_json::from_str(&row.input.outline_replacements_json)
         .map_err(|_| "RUN_SWITCH_RECOVERY_IDENTITY_MISMATCH".to_string())
 }
 
+#[cfg(test)]
 fn expected_outline(row: &RecoveryRow) -> Result<Vec<Option<String>>, String> {
     Ok(replacements(row)?.into_iter().map(|item| match item.action.as_str() {
         "clear" => None,
@@ -410,6 +409,7 @@ fn expected_outline(row: &RecoveryRow) -> Result<Vec<Option<String>>, String> {
     }).collect())
 }
 
+#[cfg(test)]
 fn read_outline(connection: &Connection, run_id: &str) -> Result<Option<(Vec<Option<String>>, String, Option<String>, String, String)>, String> {
     connection.query_row(
         "SELECT condition_summary,variable_parameter_summary,method_summary,result_summary,
@@ -422,6 +422,7 @@ fn read_outline(connection: &Connection, run_id: &str) -> Result<Option<(Vec<Opt
     ).optional().map_err(|_| "RUN_SWITCH_POST_VERIFY_AMBIGUOUS".to_string())
 }
 
+#[cfg(test)]
 fn file_exact(connection: &Connection, id: &str, row: &RecoveryRow, _updated: &str, identity: &str, mode: &str) -> Result<bool, String> {
     connection.query_row(
         "SELECT COUNT(*) FROM file_refs WHERE id=?1 AND owner_type='experimentRun' AND owner_id=?2
@@ -431,6 +432,7 @@ fn file_exact(connection: &Connection, id: &str, row: &RecoveryRow, _updated: &s
     ).map(|count| count == 1).map_err(|_| "RUN_SWITCH_POST_VERIFY_AMBIGUOUS".to_string())
 }
 
+#[cfg(test)]
 fn persist_post_verify(
     connection: &Connection,
     result: ExperimentRunSwitchPostVerifyResult,
@@ -445,6 +447,7 @@ fn persist_post_verify(
     Ok(result)
 }
 
+#[cfg(test)]
 pub(crate) fn post_verify_experiment_run_switch_recovery_in_connection(
     connection: &Connection,
     operation_id: &str,
@@ -530,6 +533,7 @@ pub(crate) fn post_verify_experiment_run_switch_recovery_in_connection(
     persist_post_verify(connection,result("ambiguous", "RUN_SWITCH_POST_VERIFY_AMBIGUOUS"))
 }
 
+#[cfg(test)]
 pub(crate) fn complete_experiment_run_switch_recovery_in_connection(
     connection: &mut Connection,
     operation_id: &str,
@@ -585,131 +589,4 @@ pub(crate) fn complete_experiment_run_switch_recovery_in_connection(
         params![updated_at,operation_id],
     ).map_err(|_| "RUN_SWITCH_DB_ONLY_COMPLETION_FAILED".to_string())?;
     post_verify_experiment_run_switch_recovery_in_connection(connection, operation_id)
-}
-
-pub(crate) fn update_recovery_phase_in_connection(
-    connection: &Connection,
-    input: &ExperimentRunSwitchRecoveryPhaseInput,
-) -> Result<ExperimentRunSwitchRecoveryRecord, String> {
-    if !is_canonical_formal_switch_phase(&input.expected_phase)
-        || !is_canonical_formal_switch_phase(&input.next_phase)
-        || !is_valid_formal_switch_transition(&input.expected_phase, &input.next_phase)
-    {
-        return Err("RUN_SWITCH_RECOVERY_INVALID_PHASE".into());
-    }
-    let resolved = matches!(input.next_phase.as_str(), "resolved" | "cancelled_safe");
-    let changed = connection.execute(
-        "UPDATE experiment_run_manuscript_switch_recoveries SET phase=?1,updated_at=?2,
-         old_current_post_revision=COALESCE(?3,old_current_post_revision),
-         writeback_verification_result=COALESCE(?4,writeback_verification_result),
-         last_error_code=?5,last_diagnostic_summary=?6,
-         activation_status=CASE WHEN ?1='activation_pending' THEN 'pending'
-           WHEN ?1='resolved' THEN 'completed' WHEN ?1='blocked' THEN 'blocked'
-           ELSE activation_status END,
-         resolved_at=CASE WHEN ?7 THEN ?2 ELSE resolved_at END
-         WHERE operation_id=?8 AND phase=?9",
-        params![input.next_phase,input.occurred_at,input.old_current_post_revision,
-            input.writeback_verification_result,input.last_error_code,input.last_diagnostic_summary,
-            resolved,input.operation_id,input.expected_phase],
-    ).map_err(|_| "RUN_SWITCH_RECOVERY_PERSIST_FAILED".to_string())?;
-    if changed != 1 { return Err("RUN_SWITCH_RECOVERY_INVALID_PHASE".into()); }
-    get_recovery_summary_in_connection(connection, &input.operation_id)
-}
-
-fn get_recovery_summary_in_connection(connection: &Connection, operation_id: &str) -> Result<ExperimentRunSwitchRecoveryRecord, String> {
-    connection.query_row(
-        "SELECT recovery_id,operation_id,run_id,experiment_id,project_id,phase,
-                target_file_ref_id,old_current_file_ref_id,default_file_ref_id,
-                old_current_file_name,target_file_name,default_file_name,
-                old_current_pre_revision,old_current_post_revision,writeback_digest,
-                writeback_byte_length,recorded_at,activation_status,last_error_code,created_at,updated_at
-         FROM experiment_run_manuscript_switch_recoveries WHERE operation_id=?1",
-        [operation_id], |r| Ok(ExperimentRunSwitchRecoveryRecord {
-            recovery_id:r.get(0)?,operation_id:r.get(1)?,run_id:r.get(2)?,experiment_id:r.get(3)?,
-            project_id:r.get(4)?,phase:r.get(5)?,target_file_ref_id:r.get(6)?,old_current_file_ref_id:r.get(7)?,
-            default_file_ref_id:r.get(8)?,old_current_file_name:r.get(9)?,target_file_name:r.get(10)?,
-            default_file_name:r.get(11)?,old_current_pre_revision:r.get(12)?,old_current_post_revision:r.get(13)?,
-            writeback_digest:r.get(14)?,writeback_byte_length:r.get(15)?,recorded_at:r.get(16)?,activation_status:r.get(17)?,
-            last_error_code:r.get(18)?,created_at:r.get(19)?,updated_at:r.get(20)?,
-        }),
-    ).optional().map_err(|_| "RUN_SWITCH_RECOVERY_PERSIST_FAILED".to_string())?
-        .ok_or_else(|| "RUN_SWITCH_RECOVERY_NOT_FOUND".to_string())
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub(crate) fn prepare_experiment_run_switch_recovery(app_handle: AppHandle, input: ExperimentRunSwitchRecoveryPrepareInput) -> Result<ExperimentRunSwitchRecoveryRecord,String> {
-    let connection = open_connection(&app_handle)?;
-    prepare_experiment_run_switch_recovery_in_connection(&connection,&input)
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub(crate) fn get_experiment_run_switch_recovery(app_handle: AppHandle, operation_id: String) -> Result<ExperimentRunSwitchRecoveryRecord,String> {
-    let connection = open_connection(&app_handle)?;
-    get_recovery_summary_in_connection(&connection,&operation_id)
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub(crate) fn get_experiment_run_switch_recovery_detail(app_handle: AppHandle, operation_id: String) -> Result<RecoveryRow,String> {
-    let connection = open_connection(&app_handle)?;
-    recovery_row(&connection,&operation_id)
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub(crate) fn list_experiment_run_switch_recoveries(app_handle: AppHandle, run_id: String) -> Result<Vec<ExperimentRunSwitchRecoveryRecord>,String> {
-    let connection = open_connection(&app_handle)?;
-    let mut statement = connection.prepare(
-        "SELECT operation_id FROM experiment_run_manuscript_switch_recoveries
-         WHERE run_id=?1 AND manuscript_channel='primary' AND phase NOT IN ('resolved','cancelled_safe')"
-    ).map_err(|_| "RUN_SWITCH_RECOVERY_PERSIST_FAILED".to_string())?;
-    let ids = statement.query_map([run_id], |r| r.get::<_,String>(0))
-        .map_err(|_| "RUN_SWITCH_RECOVERY_PERSIST_FAILED".to_string())?
-        .collect::<rusqlite::Result<Vec<_>>>().map_err(|_| "RUN_SWITCH_RECOVERY_PERSIST_FAILED".to_string())?;
-    ids.iter().map(|id| get_recovery_summary_in_connection(&connection,id)).collect()
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub(crate) fn discover_experiment_run_switch_recoveries(app_handle: AppHandle) -> Result<Vec<ExperimentRunSwitchRecoveryRecord>,String> {
-    let connection = open_connection(&app_handle)?;
-    let mut statement = connection.prepare(
-        "SELECT operation_id FROM experiment_run_manuscript_switch_recoveries
-         WHERE phase NOT IN ('resolved','cancelled_safe') ORDER BY run_id,operation_id"
-    ).map_err(|_| "RUN_SWITCH_RECOVERY_PERSIST_FAILED".to_string())?;
-    let ids = statement.query_map([], |r| r.get::<_,String>(0))
-        .map_err(|_| "RUN_SWITCH_RECOVERY_PERSIST_FAILED".to_string())?
-        .collect::<rusqlite::Result<Vec<_>>>().map_err(|_| "RUN_SWITCH_RECOVERY_PERSIST_FAILED".to_string())?;
-    ids.iter().map(|id| get_recovery_summary_in_connection(&connection,id)).collect()
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub(crate) fn update_experiment_run_switch_recovery_phase(app_handle: AppHandle, input: ExperimentRunSwitchRecoveryPhaseInput) -> Result<ExperimentRunSwitchRecoveryRecord,String> {
-    let connection = open_connection(&app_handle)?;
-    update_recovery_phase_in_connection(&connection,&input)
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub(crate) fn post_verify_experiment_run_switch_recovery(app_handle: AppHandle, operation_id: String) -> Result<ExperimentRunSwitchPostVerifyResult,String> {
-    let connection = open_connection(&app_handle)?;
-    post_verify_experiment_run_switch_recovery_in_connection(&connection,&operation_id)
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub(crate) fn complete_experiment_run_switch_recovery(app_handle: AppHandle, operation_id: String, old_current_post_revision: String, updated_at: String) -> Result<ExperimentRunSwitchPostVerifyResult,String> {
-    let mut connection = open_connection(&app_handle)?;
-    complete_experiment_run_switch_recovery_in_connection(&mut connection,&operation_id,&old_current_post_revision,&updated_at)
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub(crate) fn safe_cancel_experiment_run_switch_recovery(app_handle: AppHandle, operation_id: String, observed_old_current_revision: String, occurred_at: String) -> Result<ExperimentRunSwitchRecoveryRecord,String> {
-    let connection = open_connection(&app_handle)?;
-    let row = recovery_row(&connection,&operation_id)?;
-    if row.phase != "prepared" || row.input.old_current_pre_revision != observed_old_current_revision {
-        return Err("RUN_SWITCH_SAFE_CANCEL_NOT_ALLOWED".into());
-    }
-    let verify = post_verify_experiment_run_switch_recovery_in_connection(&connection,&operation_id)?;
-    if verify.status != "not_committed" { return Err("RUN_SWITCH_SAFE_CANCEL_NOT_ALLOWED".into()); }
-    update_recovery_phase_in_connection(&connection,&ExperimentRunSwitchRecoveryPhaseInput {
-        operation_id, expected_phase:"prepared".into(), next_phase:"cancelled_safe".into(),
-        occurred_at, old_current_post_revision:None, writeback_verification_result:Some("not_applied".into()),
-        last_error_code:None, last_diagnostic_summary:Some("writeback=0;db=0".into()),
-    })
 }

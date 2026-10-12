@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "SciLoom",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "identifier": "local.labpod.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -13,6 +13,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "SciLoom",
         "width": 1200,
         "height": 800,
@@ -28,11 +29,14 @@
   },
   "bundle": {
     "active": true,
+    "license": "BSD-3-Clause",
+    "licenseFile": "../LICENSE",
     "targets": ["nsis"],
     "icon": ["icons/icon.ico"],
     "resources": {
       "../demo/west-lake-vinegar-fish/project-import.json": "demo/west-lake-vinegar-fish/project-import.json",
-      "../docs/QUICK_START.md": "docs/QUICK_START.md"
+      "../docs/QUICK_START.md": "docs/QUICK_START.md",
+      "../LICENSE": "LICENSE"
     }
   }
 }

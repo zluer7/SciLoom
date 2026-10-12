@@ -1,4 +1,5 @@
 import type { EntityId } from "../types";
+import { ROUTINE_CALENDAR_COLOR_KEYS } from "../types/planning";
 import type {
   ActorType,
   BaseEntity,
@@ -73,6 +74,8 @@ import {
   getPlanningData,
   normalizeRouteDate,
   replaceReviewSummarizesTargetLinks,
+  restoreTask as restorePlanningTask,
+  restoreRouteNode as restorePlanningRouteNode,
   updateProject as updatePlanningProject,
   updateResearchRoutine as updatePlanningResearchRoutine,
   updateReview as updatePlanningReview,
@@ -83,6 +86,7 @@ import {
   type PlanningPersistedReview
 } from "./planningRepository";
 import { experimentService } from "./experimentService";
+import { AuthorityWriterGuardError } from "./authorityWriterGuard";
 import { experimentRunService } from "./experimentRunService";
 import { literatureService } from "./literatureService";
 import {
@@ -1449,11 +1453,7 @@ export async function restoreRouteNode(
   routeNodeId: EntityId,
   options: RestoreRouteNodeOptions = {}
 ): Promise<RouteNode | undefined> {
-  return updatePlanningRouteNode(routeNodeId, {
-    status: options.status ?? "planned",
-    captureState: "pending",
-    archivedAt: undefined
-  });
+  return restorePlanningRouteNode(routeNodeId, options.status ?? "planned");
 }
 
 export async function deleteRouteNode(routeNodeId: EntityId): Promise<boolean> {
@@ -1705,9 +1705,19 @@ export async function queryTaskCheckpoints(
     );
 }
 
+function validateRoutineCalendarPreferences(input: Pick<ResearchRoutine, "showInRollingWeek" | "rollingWeekColor">) {
+  if (input.showInRollingWeek !== undefined && typeof input.showInRollingWeek !== "boolean") {
+    throw new Error("ResearchRoutine showInRollingWeek must be a boolean.");
+  }
+  if (input.rollingWeekColor !== undefined && !ROUTINE_CALENDAR_COLOR_KEYS.includes(input.rollingWeekColor)) {
+    throw new Error(`ResearchRoutine rollingWeekColor is not supported: ${String(input.rollingWeekColor)}.`);
+  }
+}
+
 function normalizeResearchRoutineInput(
   input: CreateResearchRoutineInput
 ): CreateResearchRoutineInput {
+  validateRoutineCalendarPreferences(input);
   const title = input.title.trim();
   if (!title) {
     throw new Error("ResearchRoutine title is required.");
@@ -1736,6 +1746,8 @@ function normalizeResearchRoutineInput(
     targetCount,
     targetDescription: input.targetDescription?.trim() || undefined,
     isActive: input.isActive ?? true,
+    showInRollingWeek: input.showInRollingWeek ?? false,
+    rollingWeekColor: input.rollingWeekColor ?? "sage",
     startDate: input.startDate?.trim() || undefined,
     endDate: input.endDate?.trim() || undefined,
     orderIndex: input.orderIndex ?? 0
@@ -1745,6 +1757,7 @@ function normalizeResearchRoutineInput(
 function normalizeResearchRoutinePatch(
   patch: UpdateEntityInput<ResearchRoutine>
 ): UpdateEntityInput<ResearchRoutine> {
+  validateRoutineCalendarPreferences(patch);
   const nextPatch: UpdateEntityInput<ResearchRoutine> = { ...patch };
   if (patch.title !== undefined) {
     const title = patch.title.trim();
@@ -2101,27 +2114,14 @@ export async function archiveTask(
   taskId: EntityId,
   options: ArchiveOptions = {}
 ): Promise<Task | undefined> {
-  const archived = await archivePlanningTask(taskId);
-  if (archived && options.note) {
-    await updatePlanningTask(taskId, {
-      customFields: {
-        ...(archived.customFields ?? {}),
-        archiveNote: options.note
-      }
-    });
-  }
-  return archived;
+  return archivePlanningTask(taskId, options.note);
 }
 
 export async function restoreTask(
   taskId: EntityId,
   options: RestoreTaskOptions = {}
 ): Promise<Task | undefined> {
-  return updatePlanningTask(taskId, {
-    status: options.status ?? "todo",
-    captureState: "pending",
-    archivedAt: undefined
-  });
+  return restorePlanningTask(taskId, options.status ?? "todo");
 }
 
 export async function deleteTask(
@@ -2520,19 +2520,13 @@ export async function archiveReview(
   return archived;
 }
 
+/** @deprecated Archive restoration is unsupported. Soft-deleted Reviews use
+ * restoreDeletedReview with its exact typed lifecycle input in Operation Center. */
 export async function restoreReview(
-  reviewId: EntityId,
+  _reviewId: EntityId,
   _options: RestoreReviewOptions = {}
 ): Promise<Review | undefined> {
-  const existing = await getReviewById(reviewId);
-  const restored = await updatePlanningReview(reviewId, {
-    archivedAt: undefined
-  });
-  publishReviewWriteFeedback("planning.restoreReview", reviewId, restored ?? existing, {
-    relation: restored ? "updated" : "skipped",
-    skipped: restored ? [] : ["review_not_found"]
-  });
-  return restored;
+  throw new AuthorityWriterGuardError("NotWritable", "PLANNING_REVIEW_ARCHIVE_RESTORE_UNSUPPORTED");
 }
 
 export async function deleteReview(reviewId: EntityId, options: ArchiveOptions = {}): Promise<boolean> {

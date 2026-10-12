@@ -1,5 +1,6 @@
 pub(crate) mod schema;
 pub(crate) mod ai_durable_foundation;
+pub(crate) mod ai_conversation_management;
 pub(crate) mod representative_runs;
 pub(crate) mod manuscript_save_as_operation;
 pub(crate) mod manuscript_save_as_candidate_custody;
@@ -8,6 +9,9 @@ pub(crate) mod experiment_manuscript_switch;
 pub(crate) mod experiment_manuscript_switch_recovery;
 pub(crate) mod experiment_six_field_schema;
 pub(crate) mod experiment_planning_relation;
+pub(crate) mod planning_persistence;
+#[cfg(test)]
+mod planning_persistence_tests;
 pub(crate) mod formal_switch_recovery;
 // F1 deliberately seals the new foundation from production owners until successor admission.
 #[allow(dead_code)]
@@ -61,7 +65,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 const DATABASE_FILE_NAME: &str = "labpod.sqlite3";
 
@@ -71,13 +75,12 @@ pub struct DatabaseRuntimeIdentity {
     source: &'static str,
     database_path: String,
     database_file_name: &'static str,
+    webview_profile_path: String,
+    app_data_path: String,
 }
 
-pub(crate) fn database_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
-    let app_data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|error| format!("failed to resolve app data directory: {error}"))?;
+pub(crate) fn database_path<R: tauri::Runtime>(app_handle: &AppHandle<R>) -> Result<PathBuf, String> {
+    let app_data_dir = crate::runtime_paths::selected(app_handle)?.database_directory;
 
     fs::create_dir_all(&app_data_dir)
         .map_err(|error| format!("failed to create app data directory: {error}"))?;
@@ -88,10 +91,13 @@ pub(crate) fn database_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
 #[tauri::command]
 pub fn db_get_runtime_identity(app_handle: AppHandle) -> Result<DatabaseRuntimeIdentity, String> {
     let path = database_path(&app_handle)?;
+    let runtime = crate::runtime_paths::selected(&app_handle)?;
     Ok(DatabaseRuntimeIdentity {
         source: "sqlite",
         database_path: path.to_string_lossy().into_owned(),
         database_file_name: DATABASE_FILE_NAME,
+        webview_profile_path: runtime.webview_profile.to_string_lossy().into_owned(),
+        app_data_path: runtime.app_data.to_string_lossy().into_owned(),
     })
 }
 
@@ -110,7 +116,7 @@ fn open_database_at(path: &Path) -> Result<Connection, String> {
     })
 }
 
-pub(crate) fn open_connection(app_handle: &AppHandle) -> Result<Connection, String> {
+pub(crate) fn open_connection<R: tauri::Runtime>(app_handle: &AppHandle<R>) -> Result<Connection, String> {
     let path = database_path(app_handle).map_err(|error| {
         format!(
             "code=DB_INITIALIZATION_FAILED stage=path version={} table=none retryable=false database_path=unresolved message={error}",
@@ -133,10 +139,7 @@ pub(crate) fn open_connection(app_handle: &AppHandle) -> Result<Connection, Stri
 }
 
 fn open_read_only_connection(app_handle: &AppHandle) -> Result<Connection, String> {
-    let app_data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|error| format!("MANUSCRIPT_BINDING_READ_FAILED: {error}"))?;
+    let app_data_dir = crate::runtime_paths::selected(app_handle)?.database_directory;
     let path = app_data_dir.join(DATABASE_FILE_NAME);
     if !path.is_file() {
         return Err(format!(
@@ -1000,6 +1003,7 @@ fn save_record(
     if !record.contains_key("id") {
         return Err("SQLite record payload must include id".to_string());
     }
+    planning_persistence::validate_task_write(connection, table_name, record)?;
     if matches!(table_name, "experiments" | "experiment_runs") {
         let id = record.get("id").and_then(Value::as_str).unwrap_or_default();
         let existing_deleted_at: Option<Option<String>> = connection
@@ -1188,7 +1192,11 @@ pub fn db_save_record(
         .as_object()
         .ok_or_else(|| "SQLite record payload must be an object".to_string())?;
     let connection = open_connection(&app_handle)?;
-    save_record(&connection, &table_name, record)
+    if matches!(table_name.as_str(), "outputs" | "output_gaps") {
+        planning_persistence::transaction(&connection, || save_record(&connection, &table_name, record))
+    } else {
+        save_record(&connection, &table_name, record)
+    }
 }
 
 fn insert_record_if_absent(
@@ -1263,6 +1271,9 @@ fn update_record_with_expected_updated_at(
     record: &Map<String, Value>,
     expected_updated_at: Option<&str>,
 ) -> Result<bool, String> {
+    let mut relation_record=record.clone();
+    relation_record.insert("id".into(),Value::String(id.to_string()));
+    planning_persistence::validate_task_write(connection, table_name, &relation_record)?;
     let allowed = allowed_columns(table_name)
         .ok_or_else(|| format!("unsupported SQLite table: {table_name}"))?;
 
@@ -1381,13 +1392,11 @@ pub fn db_update_record(
         .as_object()
         .ok_or_else(|| "SQLite update payload must be an object".to_string())?;
     let connection = open_connection(&app_handle)?;
-    update_record_with_expected_updated_at(
-        &connection,
-        &table_name,
-        &id,
-        record,
-        expected_updated_at.as_deref(),
-    )
+    let operation = || update_record_with_expected_updated_at(
+        &connection, &table_name, &id, record, expected_updated_at.as_deref());
+    if matches!(table_name.as_str(), "outputs" | "output_gaps") {
+        planning_persistence::transaction(&connection, operation)
+    } else { operation() }
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -1742,6 +1751,9 @@ fn hard_delete_record(
     Ok(changed > 0)
 }
 
+// Legacy Outputs switch fixtures are used only by the unit tests below.
+// Production Outputs switches use formal_switch_reference_owner_bridge.
+#[cfg(test)]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OutputManuscriptStructuredPatch {
@@ -1749,6 +1761,7 @@ pub struct OutputManuscriptStructuredPatch {
     structured_summary: Value,
 }
 
+#[cfg(test)]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommitOutputManuscriptSwitchInput {
@@ -1763,6 +1776,7 @@ pub struct CommitOutputManuscriptSwitchInput {
     operation_id: String,
 }
 
+#[cfg(test)]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommitOutputManuscriptSwitchResult {
@@ -1779,6 +1793,7 @@ pub struct CommitOutputManuscriptSwitchResult {
     durable_readback_confirmed: bool,
 }
 
+#[cfg(test)]
 struct OutputManuscriptOwnerContract {
     table: &'static str,
     brief_column: &'static str,
@@ -1786,6 +1801,7 @@ struct OutputManuscriptOwnerContract {
     structured_keys: &'static [&'static str],
 }
 
+#[cfg(test)]
 fn output_manuscript_owner_contract(owner_type: &str) -> Result<OutputManuscriptOwnerContract, String> {
     match owner_type {
         "resultItem" => Ok(OutputManuscriptOwnerContract { table: "result_items", brief_column: "summary", brief_stable_key: "summary", structured_keys: &["keyPhenomenon", "conditionBrief", "initialJudgement", "conversionValue", "other"] }),
@@ -1797,6 +1813,7 @@ fn output_manuscript_owner_contract(owner_type: &str) -> Result<OutputManuscript
     }
 }
 
+#[cfg(test)]
 fn validate_output_structured_summary(summary: &Value, keys: &[&str]) -> Result<(), String> {
     let values = summary.as_array().ok_or_else(|| "OUTPUT_MANUSCRIPT_PATCH_INVALID: structuredSummary must be an array".to_string())?;
     if values.len() != keys.len() {
@@ -1817,6 +1834,7 @@ fn validate_output_structured_summary(summary: &Value, keys: &[&str]) -> Result<
     Ok(())
 }
 
+#[cfg(test)]
 fn apply_output_structured_summary_patch(
     existing: &Value,
     patch: &Value,
@@ -1849,6 +1867,7 @@ fn apply_output_structured_summary_patch(
     Ok(Value::Array(applied))
 }
 
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum OutputManuscriptSwitchFailurePoint {
     AfterDirectUpdate,
@@ -1859,6 +1878,7 @@ enum OutputManuscriptSwitchFailurePoint {
     DurableReadback,
 }
 
+#[cfg(test)]
 fn injected_output_switch_failure(
     active: Option<OutputManuscriptSwitchFailurePoint>,
     expected: OutputManuscriptSwitchFailurePoint,
@@ -1869,6 +1889,7 @@ fn injected_output_switch_failure(
     Ok(())
 }
 
+#[cfg(test)]
 fn commit_output_manuscript_switch_in_connection(
     connection: &mut Connection,
     input: &CommitOutputManuscriptSwitchInput,
@@ -1876,6 +1897,7 @@ fn commit_output_manuscript_switch_in_connection(
     commit_output_manuscript_switch_in_connection_with_failure(connection, input, None)
 }
 
+#[cfg(test)]
 fn commit_output_manuscript_switch_in_connection_with_failure(
     connection: &mut Connection,
     input: &CommitOutputManuscriptSwitchInput,

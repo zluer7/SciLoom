@@ -47,6 +47,10 @@ export interface AIConversation {
   stableKey: string;
   createdAt: string;
   updatedAt: string;
+  title?: string | null;
+  archivedAt?: string | null;
+  trashedAt?: string | null;
+  revision?: number;
 }
 
 export interface AIConversationSummary {
@@ -57,6 +61,10 @@ export interface AIConversationSummary {
   firstUserMessage?: string;
   latestMessage?: string;
   messageCount: number;
+  title?: string | null;
+  archivedAt?: string | null;
+  trashedAt?: string | null;
+  revision?: number;
 }
 
 export interface AIMessage {

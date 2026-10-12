@@ -82,7 +82,7 @@ pub(crate) fn apply(connection: &Connection) -> Result<()> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use super::super::schema;
     use rusqlite::types::Value;
@@ -108,9 +108,9 @@ mod tests {
     fn version(c: &Connection) -> i64 { c.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap() }
     fn fk(c: &Connection) -> i64 { c.query_row("PRAGMA foreign_keys", [], |r| r.get(0)).unwrap() }
 
-    fn predecessor() -> Connection {
+    pub(crate) fn predecessor() -> Connection {
         let c = Connection::open_in_memory().unwrap();
-        schema::run_migrations(&c).unwrap();
+        schema::run_pre_planning_migrations(&c).unwrap();
         // Isolated approved-family fixture only; never reverse an actual database.
         let indexes: Vec<String> = c.prepare("SELECT sql FROM sqlite_master WHERE tbl_name='experiments' AND type IN ('index','trigger') AND sql IS NOT NULL").unwrap()
             .query_map([], |r| r.get(0)).unwrap().collect::<Result<_>>().unwrap();
@@ -141,19 +141,19 @@ mod tests {
     #[test]
     fn preserves_all_rows_reverse_refs_sorting_bindings_and_non_target_schema() {
         let c=predecessor(); let data=contents(&c); let schema_before=objects(&c);
-        schema::run_migrations(&c).unwrap();
+        schema::run_pre_planning_migrations(&c).unwrap();
         assert_eq!(data,contents(&c)); assert_eq!(schema_before,objects(&c));
         assert_eq!(version(&c),VERSION); assert_eq!(fk(&c),1);
         integrity(&c).unwrap(); validate_target(&c).unwrap();
         assert!(!c.prepare("PRAGMA foreign_key_list(experiments)").unwrap().exists([]).unwrap());
         assert_eq!(rows(&c,"SELECT sort_order,updated_at FROM experiment_representative_runs ORDER BY sort_order"),vec![vec![Value::Integer(0),Value::Text("unchanged1".into())],vec![Value::Integer(1),Value::Text("unchanged2".into())]]);
-        let fresh=Connection::open_in_memory().unwrap(); schema::run_migrations(&fresh).unwrap();
+        let fresh=Connection::open_in_memory().unwrap(); schema::run_pre_planning_migrations(&fresh).unwrap();
         assert_eq!(rows(&c,"PRAGMA table_info(experiments)"),rows(&fresh,"PRAGMA table_info(experiments)"));
         assert_eq!(rows(&c,"SELECT sql FROM sqlite_master WHERE name='experiments'"),rows(&fresh,"SELECT sql FROM sqlite_master WHERE name='experiments'"));
         // Once at target, non-null current IDs survive start and no rebuild occurs.
         c.execute_batch("UPDATE experiments SET route_id='current-route',task_id='current-task'; UPDATE experiment_runs SET task_id='current-task';").unwrap();
         let target=contents(&c); let schema_version=rows(&c,"PRAGMA schema_version");
-        schema::run_migrations(&c).unwrap();
+        schema::run_pre_planning_migrations(&c).unwrap();
         assert_eq!(target,contents(&c)); assert_eq!(schema_version,rows(&c,"PRAGMA schema_version"));
     }
 
@@ -163,7 +163,7 @@ mod tests {
             let c=predecessor(); c.execute(&format!("UPDATE {table} SET {column}=?1 WHERE rowid=(SELECT MIN(rowid) FROM {table})"),[value]).unwrap();
             integrity(&c).unwrap(); // Rejection must not be caused by an invalid legacy FK.
             let data=contents(&c); let before=rows(&c,"SELECT type,name,sql FROM sqlite_master ORDER BY type,name");
-            let error=schema::run_migrations(&c).unwrap_err();
+            let error=schema::run_pre_planning_migrations(&c).unwrap_err();
             assert_eq!(error.stage,"v59-predecessor-admission-all-four-relations-null");
             assert_eq!(data,contents(&c)); assert_eq!(before,rows(&c,"SELECT type,name,sql FROM sqlite_master ORDER BY type,name"));
             assert_eq!(version(&c),58); assert_eq!(fk(&c),1); integrity(&c).unwrap();
@@ -175,7 +175,7 @@ mod tests {
         let c=predecessor();
         c.execute_batch("CREATE TRIGGER lp15_fail_marker BEFORE INSERT ON schema_migrations WHEN NEW.version=59 BEGIN SELECT RAISE(ABORT,'deterministic after-rebuild failure'); END;").unwrap();
         let data=contents(&c); let before=rows(&c,"SELECT type,name,sql FROM sqlite_master ORDER BY type,name");
-        let error=schema::run_migrations(&c).unwrap_err();
+        let error=schema::run_pre_planning_migrations(&c).unwrap_err();
         assert_eq!(error.stage,"v59-relation-migration"); assert!(error.message.contains("deterministic after-rebuild failure"));
         assert_eq!(data,contents(&c)); assert_eq!(before,rows(&c,"SELECT type,name,sql FROM sqlite_master ORDER BY type,name"));
         assert_eq!(version(&c),58); assert_eq!(fk(&c),1); integrity(&c).unwrap(); preflight(&c).unwrap();
@@ -184,11 +184,11 @@ mod tests {
     #[test]
     fn rejects_unknown_version_and_tampered_predecessor_shape() {
         let c=predecessor(); c.execute_batch("PRAGMA user_version=57;").unwrap();
-        let before=contents(&c); assert!(schema::run_migrations(&c).is_err()); assert_eq!(version(&c),57); assert_eq!(before,contents(&c));
+        let before=contents(&c); assert!(schema::run_pre_planning_migrations(&c).is_err()); assert_eq!(version(&c),57); assert_eq!(before,contents(&c));
         c.execute_batch("PRAGMA user_version=58; ALTER TABLE experiments ADD COLUMN unexpected TEXT;").unwrap();
-        let before=contents(&c); assert!(schema::run_migrations(&c).is_err()); assert_eq!(version(&c),58); assert_eq!(before,contents(&c));
+        let before=contents(&c); assert!(schema::run_pre_planning_migrations(&c).is_err()); assert_eq!(version(&c),58); assert_eq!(before,contents(&c));
         let unversioned=Connection::open_in_memory().unwrap();
         unversioned.execute_batch("CREATE TABLE existing(id TEXT PRIMARY KEY);").unwrap();
-        assert!(schema::run_migrations(&unversioned).is_err()); assert_eq!(version(&unversioned),0);
+        assert!(schema::run_pre_planning_migrations(&unversioned).is_err()); assert_eq!(version(&unversioned),0);
     }
 }
