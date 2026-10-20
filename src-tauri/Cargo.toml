@@ -1,6 +1,6 @@
 [package]
 name = "labpod"
-version = "1.1.0"
+version = "1.1.1"
 description = "SciLoom local desktop application"
 authors = ["SciLoom"]
 license = "BSD-3-Clause"

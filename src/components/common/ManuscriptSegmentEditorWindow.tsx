@@ -731,7 +731,7 @@ export function ManuscriptSegmentEditorWindow(props: ManuscriptSegmentEditorWind
             <aside className="markdown-editor-sidebar" aria-label={ui("结构化纲要")}>
               <h3>{ui("结构化纲要")}</h3>
               {props.entryKind === "current" && session ? <ManuscriptStructuredSidebar
-                key={`${session.logicalIdentity.ownerId}:${session.logicalIdentity.channel}`}
+                key={`${session.logicalIdentity.ownerType}:${session.logicalIdentity.ownerId}:${session.logicalIdentity.channel}`}
                 ref={structuredSidebarRef}
                 identity={{ ...descriptorLookupIdentity, ownerId: session.logicalIdentity.ownerId }}
                 disabled={readOnly || props.loading || attachError || !visibleProjectionState || Boolean(operationLock) || saving}

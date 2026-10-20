@@ -33,7 +33,7 @@ async function readOwner(identity: StructuredSidebarIdentity) {
   }
 }
 
-function valuesFromOwner(identity: StructuredSidebarIdentity, owner: object): StructuredSidebarValues {
+export function projectStructuredSidebarValues(identity: StructuredSidebarIdentity, owner: object): StructuredSidebarValues {
   const record = owner as Record<string, unknown>;
   if (identity.ownerType === "review" && record.reviewType !== identity.reviewType) {
     throw new Error("复盘类型已变化，请关闭并重新打开编辑器。");
@@ -57,7 +57,7 @@ export async function readStructuredSidebar(identity: StructuredSidebarIdentity)
   const owner = await readOwner(identity);
   if (!owner || !decision.canRead) throw new Error("结构化内容不可读取。");
   const record = owner as unknown as Record<string, unknown>;
-  return { identity, values: valuesFromOwner(identity, owner), readOnly: !decision.canWrite || Boolean(
+  return { identity, values: projectStructuredSidebarValues(identity, owner), readOnly: !decision.canWrite || Boolean(
     record.archivedAt || record.isArchived || record.deletedAt || record.status === "archived" || record.captureState === "archived"
   ) };
 }

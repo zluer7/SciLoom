@@ -49,11 +49,11 @@
 .manuscript-segment-editor-window {
   inset: var(--f3-modal-inset);
   width: var(--f3-modal-width);
-  min-width: 1100px;
+  min-width: 0;
   height: var(--f3-modal-height);
   max-width: 100vw;
   max-height: 100dvh;
-  grid-template-rows: var(--f3-header-height) minmax(var(--f3-main-body-min-height), 1fr) var(--f3-footer-height);
+  grid-template-rows: var(--f3-header-height) minmax(var(--f3-main-body-min-height), 1fr) auto;
 }
 
 .manuscript-segment-product-state {
@@ -587,6 +587,76 @@
 .manuscript-segment-editor-window .markdown-editor-sidebar dd {
   color: var(--appearance-text-strong, #102a43);
   font-size: 15px;
+}
+
+.manuscript-structured-sidebar__actions,
+.literature-knowledge-deposit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.manuscript-structured-sidebar__actions button {
+  border: 1px solid var(--appearance-border, #bcccdc);
+  border-radius: var(--f3-action-button-radius, 7px);
+  background: var(--appearance-surface, #ffffff);
+  color: var(--appearance-text-main, #334e68);
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.manuscript-structured-sidebar__actions button:hover:not(:disabled) {
+  background: var(--appearance-surface-soft, #f8fafc);
+  border-color: var(--appearance-border-strong, #9fb3c8);
+}
+
+.manuscript-structured-sidebar__actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.manuscript-structured-sidebar__field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  color: var(--appearance-text-main, #334e68);
+  font-size: 13px;
+}
+
+.manuscript-structured-sidebar__field textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  border: 1px solid var(--appearance-border, #bcccdc);
+  border-radius: 7px;
+  background: var(--appearance-surface, #ffffff);
+  color: var(--appearance-text-strong, #102a43);
+  padding: 8px;
+  font: inherit;
+  line-height: 1.5;
+}
+
+.manuscript-structured-sidebar__hint,
+.literature-notes-export-feedback {
+  color: var(--appearance-text-muted, #627d98);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.manuscript-structured-sidebar dd {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.literature-notes-export-feedback {
+  flex-basis: 100%;
+  text-align: right;
 }
 
 .markdown-editor-main {
@@ -1369,6 +1439,25 @@
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .manuscript-segment-editor-window .markdown-editor-footer {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .manuscript-segment-editor-window .markdown-editor-current-manuscript {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+
+  .manuscript-segment-editor-window .markdown-editor-footer-actions {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+  }
 }
 
 .markdown-editor-resize-handle {

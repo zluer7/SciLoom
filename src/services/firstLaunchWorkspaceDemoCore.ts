@@ -9,7 +9,7 @@ import type { ManagedRootConfigurationSnapshot } from "./managedRootConfigServic
 export const BUNDLED_DEMO_RELATIVE_PATH =
   "demo/west-lake-vinegar-fish/project-import.json" as const;
 export const BUNDLED_DEMO_SHA256 =
-  "C9E5D5E5465E87DD9907BD081E1C6BCCFCD6283BA8AAC2E1D4019CD59AC7AE69" as const;
+  "30F76941D047A871829C884C985391E34D9FA15FD044E4C47AA908B2C6D5509D" as const;
 export const BUNDLED_DEMO_PROJECT_TITLE =
   "西湖醋鱼关键工艺参数与品质稳定性优化研究" as const;
 export const BUNDLED_DEMO_IDENTITY_TAGS = ["SciLoom Demo", "合成示例"] as const;
@@ -19,7 +19,7 @@ export const BUNDLED_DEMO_EXPECTED_OBJECT_COUNTS: Readonly<
 > = Object.freeze({
   project: 1,
   route: 8,
-  task: 11,
+  task: 18,
   experiment: 5,
   experimentRun: 6,
   literature: 4,

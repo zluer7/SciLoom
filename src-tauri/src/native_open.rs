@@ -18,6 +18,12 @@ pub struct NativeOpenFileDiagnostics {
     powershell_started: bool,
     powershell_success: bool,
     status_code: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    native_backend: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    native_started: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    native_success: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -206,6 +212,10 @@ pub fn inspect_local_path(
 
 fn ensure_existing_file(file_path: &str) -> Result<(), String> {
     let path = Path::new(file_path);
+    #[cfg(target_os = "macos")]
+    if !path.is_absolute() {
+        return Err("path is not an absolute file path".to_string());
+    }
     if !path.exists() {
         return Err("file does not exist".to_string());
     }
@@ -309,6 +319,34 @@ fn build_open_folder_command(folder_path: &str) -> NativeCommandSpec {
     }
 }
 
+// Absolute paths are passed as one argument, without a shell or Windows path
+// conversion. These specifications can be tested without launching macOS tools.
+#[cfg(any(target_os = "macos", test))]
+fn macos_open_command(path: &str, reveal: bool) -> NativeCommandSpec {
+    NativeCommandSpec {
+        program: "/usr/bin/open",
+        args: if reveal {
+            vec!["-R".to_string(), path.to_string()]
+        } else {
+            vec![path.to_string()]
+        },
+    }
+}
+
+fn platform_open_file_command(path: &str) -> NativeCommandSpec {
+    #[cfg(target_os = "macos")]
+    { macos_open_command(path, false) }
+    #[cfg(not(target_os = "macos"))]
+    { build_open_file_command(path) }
+}
+
+fn platform_open_folder_command(path: &str) -> NativeCommandSpec {
+    #[cfg(target_os = "macos")]
+    { macos_open_command(path, false) }
+    #[cfg(not(target_os = "macos"))]
+    { build_open_folder_command(path) }
+}
+
 fn command_from_spec(spec: NativeCommandSpec) -> Command {
     let mut command = Command::new(spec.program);
     command.args(spec.args);
@@ -323,9 +361,10 @@ fn run_command(mut command: Command, action: &str) -> Result<(), String> {
 }
 
 fn run_command_and_wait(mut command: Command, action: &str) -> Result<Option<i32>, String> {
+    let backend = if cfg!(target_os = "macos") { "open" } else { "powershell" };
     let output = command
         .output()
-        .map_err(|error| format!("native_powershell_spawn_failed: failed to {action}: {error}"))?;
+        .map_err(|error| format!("native_{backend}_spawn_failed: failed to {action}: {error}"))?;
 
     let status_code = output.status.code();
     if output.status.success() {
@@ -338,7 +377,7 @@ fn run_command_and_wait(mut command: Command, action: &str) -> Result<Option<i32
         .map(|code| code.to_string())
         .unwrap_or_else(|| "terminated".to_string());
     Err(format!(
-        "native_powershell_status_failed: native command failed during {action}; status {status}"
+        "native_{backend}_status_failed: native command failed during {action}; status {status}"
     ))
 }
 
@@ -350,6 +389,9 @@ pub fn open_file(file_path: String) -> Result<NativeOpenFileDiagnostics, String>
         powershell_started: false,
         powershell_success: false,
         status_code: None,
+        native_backend: None,
+        native_started: None,
+        native_success: None,
     };
 
     ensure_existing_file(&file_path).map_err(|error| match error.as_str() {
@@ -360,11 +402,20 @@ pub fn open_file(file_path: String) -> Result<NativeOpenFileDiagnostics, String>
     diagnostics.path_validation_passed = true;
 
     let status_code = run_command_and_wait(
-        command_from_spec(build_open_file_command(&file_path)),
+        command_from_spec(platform_open_file_command(&file_path)),
         "open file",
     )?;
-    diagnostics.powershell_started = true;
-    diagnostics.powershell_success = true;
+    #[cfg(not(target_os = "macos"))]
+    {
+        diagnostics.powershell_started = true;
+        diagnostics.powershell_success = true;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        diagnostics.native_backend = Some("macos-open");
+        diagnostics.native_started = Some(true);
+        diagnostics.native_success = Some(true);
+    }
     diagnostics.status_code = status_code;
     Ok(diagnostics)
 }
@@ -374,7 +425,7 @@ pub fn open_folder(folder_path: String) -> Result<(), String> {
     ensure_existing_folder(&folder_path)?;
 
     run_command(
-        command_from_spec(build_open_folder_command(&folder_path)),
+        command_from_spec(platform_open_folder_command(&folder_path)),
         "open folder",
     )
     .map_err(|error| format!("WORKSPACE_FOLDER_OPEN_FAILED: {error}"))
@@ -384,14 +435,48 @@ pub fn open_folder(folder_path: String) -> Result<(), String> {
 pub fn reveal_in_folder(file_path: String) -> Result<(), String> {
     ensure_existing_file(&file_path)?;
 
-    let mut command = Command::new("explorer");
-    command.arg("/select,").arg(file_path);
+    #[cfg(target_os = "macos")]
+    let command = command_from_spec(macos_open_command(&file_path, true));
+    #[cfg(not(target_os = "macos"))]
+    let command = {
+        let mut command = Command::new("explorer");
+        command.arg("/select,").arg(file_path);
+        command
+    };
     run_command(command, "reveal file in folder")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn macos_open_preserves_absolute_unicode_spaces_and_shell_metacharacters() {
+        let path = "/tmp/科研 folder/a 'quote'; $(not-a-command).md";
+        let open = macos_open_command(path, false);
+        assert_eq!(open.program, "/usr/bin/open");
+        assert_eq!(open.args, [path]);
+        let reveal = macos_open_command(path, true);
+        assert_eq!(reveal.program, "/usr/bin/open");
+        assert_eq!(reveal.args, ["-R", path]);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn platform_selection_preserves_existing_windows_commands_and_wire_diagnostics() {
+        let path = r"C:\Temp\test.md";
+        assert_eq!(platform_open_file_command(path), build_open_file_command(path));
+        assert_eq!(platform_open_folder_command(path), build_open_folder_command(path));
+        let diagnostics = NativeOpenFileDiagnostics {
+            received: true, path_validation_passed: true,
+            powershell_started: true, powershell_success: true, status_code: Some(0),
+            native_backend: None, native_started: None, native_success: None,
+        };
+        let value = serde_json::to_value(diagnostics).unwrap();
+        assert_eq!(value.as_object().unwrap().len(), 5);
+        assert_eq!(value["powershellSuccess"], true);
+        assert!(value.get("nativeBackend").is_none());
+    }
 
     #[test]
     fn open_file_command_uses_powershell_invoke_item_literal_path() {
@@ -420,6 +505,9 @@ mod tests {
             powershell_started: true,
             powershell_success: true,
             status_code: Some(0),
+            native_backend: None,
+            native_started: None,
+            native_success: None,
         };
 
         assert!(diagnostics.received);

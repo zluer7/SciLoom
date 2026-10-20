@@ -11,6 +11,7 @@ import { LazyManuscriptSegmentEditorWindow } from "../../components/common/LazyM
 import { buildLiteratureContextInsert } from "../../services/literatureContextInsertService";
 import { ModalPortal } from "../../components/common/ModalPortal";
 import { StructuredSummaryDisplay } from "../../components/common/StructuredSummaryDisplay";
+import { LiteratureDedicatedNotesExportButton } from "./LiteratureDedicatedNotesExportButton";
 import { PageHeader } from "../../components/common/PageHeader";
 import { WriteFeedbackPanel } from "../../components/feedback/WriteFeedbackPanel";
 import { OperationConfirmDialog } from "../../components/safety/OperationConfirmDialog";
@@ -2448,6 +2449,7 @@ export function LiteraturePage() {
               <section className="literature-detail-body-card literature-knowledge-deposit-card">
                 <div className="literature-knowledge-deposit-header">
                   <h3>{ui("专属课题笔记")}</h3>
+                  <div className="literature-knowledge-deposit-actions">
                   <button
                     type="button"
                     disabled={!detailContext}
@@ -2455,6 +2457,14 @@ export function LiteraturePage() {
                   >
                     {ui("编辑")}
                   </button>
+                  <LiteratureDedicatedNotesExportButton
+                    identity={{ literatureId: selectedLiterature.id, projectId: selectedLiterature.primaryProjectId || null }}
+                    scopeId={filters.primaryProjectId}
+                    sourceRevision={selectedLiterature.updatedAt}
+                    disabled={!detailContext || isLoading}
+                    hasUnsavedEdits={isProjectSpecificNotesEditorOpen}
+                  />
+                  </div>
                 </div>
                 <StructuredSummaryDisplay
                   fields={knowledgeFields}

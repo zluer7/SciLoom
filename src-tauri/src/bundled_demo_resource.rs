@@ -6,7 +6,7 @@ use tauri::{AppHandle, Manager};
 
 const RESOURCE_RELATIVE_PATH: &str = "demo/west-lake-vinegar-fish/project-import.json";
 const EXPECTED_SHA256: &str =
-    "C9E5D5E5465E87DD9907BD081E1C6BCCFCD6283BA8AAC2E1D4019CD59AC7AE69";
+    "30F76941D047A871829C884C985391E34D9FA15FD044E4C47AA908B2C6D5509D";
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn canonical_product_resource_matches_frozen_hash_and_size() {
         let bytes = include_bytes!("../../demo/west-lake-vinegar-fish/project-import.json");
-        assert_eq!(bytes.len(), 58_274);
+        assert_eq!(bytes.len(), 63_500);
         assert_eq!(sha256_hex(bytes), EXPECTED_SHA256);
     }
 

@@ -85,7 +85,7 @@
         "nodeType": "experiment",
         "status": "active",
         "startDate": "2026-07-15",
-        "endDate": "2026-08-31",
+        "endDate": "2026-10-23",
         "timePrecision": "day",
         "showInGantt": true,
         "resultNote": "第一轮已完成；第二轮三个候选组合中两个已完成主要记录，第三组记录仍在整理。",
@@ -102,7 +102,7 @@
         "nodeType": "experiment",
         "status": "active",
         "startDate": "2026-08-01",
-        "endDate": "2026-09-20",
+        "endDate": "2026-10-26",
         "timePrecision": "day",
         "showInGantt": true,
         "resultNote": "第一轮已观察到可能的权衡趋势，但记录校准口径不一致，尚不能冻结参数窗口。",
@@ -115,13 +115,13 @@
       {
         "ref": "route_combination_repeatability",
         "title": "多因素组合与重复性验证",
-        "description": "截至 Demo 观察时点，该路线刚启动，当前主要进行候选组合筛选、批次安排和重复性标准冻结。",
+        "description": "截至固定演示观察日 2026-10-18，该路线继续进行候选组合筛选、批次安排和重复性标准冻结；尚未产生新的实验运行。",
         "objective": "组合前期候选参数并验证批次重复性。",
         "expectedOutput": "候选组合重复结果。",
         "nodeType": "experiment",
         "status": "active",
         "startDate": "2026-08-20",
-        "endDate": "2026-10-10",
+        "endDate": "2026-11-06",
         "timePrecision": "day",
         "showInGantt": true,
         "tags": [
@@ -135,8 +135,8 @@
         "objective": "比较鱼体规格、批次和合成盲评记录。",
         "expectedOutput": "稳定性与适用边界。",
         "nodeType": "analysis",
-        "status": "planned",
-        "startDate": "2026-09-15",
+        "status": "active",
+        "startDate": "2026-10-05",
         "endDate": "2026-11-10",
         "timePrecision": "day",
         "showInGantt": true,
@@ -152,7 +152,7 @@
         "expectedOutput": "阶段简报与方法候选。",
         "nodeType": "output",
         "status": "planned",
-        "startDate": "2026-10-20",
+        "startDate": "2026-10-19",
         "endDate": "2026-11-30",
         "timePrecision": "day",
         "showInGantt": true,
@@ -258,10 +258,10 @@
         "status": "doing",
         "priority": "high",
         "scheduledDate": "2026-08-09",
-        "dueDate": "2026-08-31",
+        "dueDate": "2026-10-22",
         "timePrecision": "day",
         "description": "第二轮设置三个候选组合，其中两个已经完成主要记录，第三组记录仍在整理；同时比较调味一次加入与分阶段加入。",
-        "resultNote": "截至 2026-08-28，只能形成阶段判断，尚不能形成最终参数结论。"
+        "resultNote": "截至固定演示观察日 2026-10-18，第三组记录仍待整理，只能形成阶段判断，尚不能形成最终参数结论。"
       },
       {
         "ref": "task_heating_retest",
@@ -270,8 +270,8 @@
         "taskType": "experiment",
         "status": "blocked",
         "priority": "high",
-        "scheduledDate": "2026-08-05",
-        "dueDate": "2026-09-20",
+        "scheduledDate": "2026-10-14",
+        "dueDate": "2026-10-21",
         "timePrecision": "day",
         "description": "统一质构记录模板，复查关键时间点，并在第二轮运行后再形成加热参数判断。",
         "blockedReason": "第一轮加热实验已完成，但质构记录校准口径不完全一致，现有记录只能用于识别趋势，不能直接冻结参数窗口。",
@@ -284,8 +284,8 @@
         "taskType": "experiment",
         "status": "doing",
         "priority": "high",
-        "scheduledDate": "2026-08-20",
-        "dueDate": "2026-10-10",
+        "scheduledDate": "2026-10-13",
+        "dueDate": "2026-10-23",
         "timePrecision": "day",
         "description": "进行候选组合筛选、批次安排和重复性标准冻结。候选工艺组合重复性验证实验仍保持计划中，待准备完成后再进入实际运行。",
         "resultNote": "截至观察时点尚未形成新的 ExperimentRun 或 ResultItem。"
@@ -297,7 +297,7 @@
         "taskType": "analysis",
         "status": "todo",
         "priority": "medium",
-        "scheduledDate": "2026-09-25",
+        "scheduledDate": "2026-10-26",
         "dueDate": "2026-11-10",
         "timePrecision": "day",
         "description": "比较中等规格 baseline 与较大规格组，考察相同候选参数在不同规格下的表现，完成一轮统一说明下的合成盲评记录并检查跨批次记录一致性。",
@@ -310,10 +310,90 @@
         "taskType": "writing",
         "status": "todo",
         "priority": "high",
-        "scheduledDate": "2026-10-20",
+        "scheduledDate": "2026-10-22",
         "dueDate": "2026-11-30",
         "timePrecision": "day",
         "description": "完善已形成的前三个月进展简报，整理候选参数窗口，区分已形成事实、待验证判断与成果缺口，并形成标准化实验记录与品质评价方法候选。"
+      },
+      {
+        "ref": "task_blind_coding_idea",
+        "title": "考虑盲评样本编码的替代方案",
+        "routeRef": "route_quality_stability",
+        "taskType": "idea",
+        "status": "todo",
+        "priority": "low",
+        "captureState": "idea",
+        "description": "合成演示想法；尚未排期，仅记录编码方案问题，不代表新增实验结论。"
+      },
+      {
+        "ref": "task_record_template_check",
+        "title": "核对本批次样本编码与记录模板",
+        "routeRef": "route_quality_stability",
+        "taskType": "analysis",
+        "status": "doing",
+        "priority": "medium",
+        "scheduledDate": "2026-10-18",
+        "dueDate": "2026-10-18",
+        "timePrecision": "day",
+        "description": "合成演示的当日资料核对任务；使用已有统一评分说明，不新增实验结果。"
+      },
+      {
+        "ref": "task_calibration_notes_delayed",
+        "title": "补齐评分口径核对记录",
+        "routeRef": "route_quality_stability",
+        "taskType": "analysis",
+        "status": "delayed",
+        "priority": "medium",
+        "scheduledDate": "2026-10-08",
+        "dueDate": "2026-10-13",
+        "timePrecision": "day",
+        "description": "原定本周前完成的记录核对尚未完成；保留延期计划和过去端点，不填写完成结果。"
+      },
+      {
+        "ref": "task_comparison_materials",
+        "title": "整理候选组合比较所需资料",
+        "routeRef": "route_quality_stability",
+        "taskType": "reading",
+        "status": "todo",
+        "priority": "low",
+        "scheduledDate": "2026-10-20",
+        "timePrecision": "day",
+        "description": "只有计划开始端点的合成资料整理任务；不设置虚构截止日。"
+      },
+      {
+        "ref": "task_scoring_agreement",
+        "title": "确认下一批盲评记录说明",
+        "routeRef": "route_quality_stability",
+        "taskType": "analysis",
+        "status": "todo",
+        "priority": "high",
+        "dueDate": "2026-10-25",
+        "timePrecision": "day",
+        "description": "只有截止端点；确认统一九点评分口径和样本编码后再安排后续研究。"
+      },
+      {
+        "ref": "task_stage_sync",
+        "title": "讨论阶段简报中的待验证判断",
+        "routeRef": "route_records_outputs",
+        "taskType": "meeting",
+        "status": "todo",
+        "priority": "medium",
+        "scheduledDate": "2026-10-22",
+        "dueDate": "2026-10-22",
+        "timePrecision": "day",
+        "description": "合成计划沟通；区分已记录事实、待验证判断和成果缺口，不新增正式成果。"
+      },
+      {
+        "ref": "task_method_outline",
+        "title": "整理标准化记录方法候选提纲",
+        "routeRef": "route_records_outputs",
+        "taskType": "writing",
+        "status": "todo",
+        "priority": "medium",
+        "scheduledDate": "2026-11-01",
+        "dueDate": "2026-11-04",
+        "timePrecision": "day",
+        "description": "后续窗口的候选方法提纲整理，仅为计划，不宣称已形成新的研究结论。"
       }
     ],
     "experiments": [
@@ -407,7 +487,8 @@
         "tags": [
           "原料规格",
           "预处理"
-        ]
+        ],
+        "variableParameterSummary": "规格：中等/较大两组；预处理强度：基础/加强；后续调味和加热固定。合成示例，仅比较记录波动。"
       },
       {
         "ref": "run_deodorization_1",
@@ -415,16 +496,17 @@
         "title": "去腥时间梯度 Run 1",
         "runLabel": "Run 1",
         "status": "completed",
-        "conditionSummary": "3、6、9 min 三组，其他条件固定。",
-        "methodSummary": "使用统一九点评分说明记录腥味、完整性和综合接受度。",
-        "resultSummary": "6 min 组综合评分领先，但仍需独立重复确认。",
+        "conditionSummary": "合成示例：中等规格 baseline，3、6、9 min 三组；记录环境温度 20 °C，后续调味与加热固定。环境温度仅作条件记录，不作因果推断。",
+        "methodSummary": "合成示例：按初版统一九点评分说明逐组记录；比较三个时间梯度，保留原始描述差异，不做显著性检验。",
+        "resultSummary": "合成记录：6 min 组腥味 2.5 分、完整性 8.0 分、综合接受度 7.2 分；3 min 组综合接受度 6.3 分，9 min 组 7.0 分。中时组相对均衡，仍需独立重复确认。",
         "conclusion": "中时组值得进入第二次运行。",
         "summaryOther": "记录日期：2026-07-15。",
         "rating": "usable",
         "tags": [
           "去腥",
           "时间梯度"
-        ]
+        ],
+        "variableParameterSummary": "自变量：预处理时间 3 / 6 / 9 min；控制条件：中等规格、同一调味方案与固定加热时间；观察指标：腥味强度、鱼体完整性、综合接受度（均为九点评分，单位：分）。腥味越低越好，其余越高越好。"
       },
       {
         "ref": "run_deodorization_2",
@@ -432,16 +514,17 @@
         "title": "去腥时间梯度 Run 2",
         "runLabel": "Run 2",
         "status": "completed",
-        "conditionSummary": "3、6、9 min 三组，其他条件固定。",
-        "methodSummary": "在修订后的统一记录说明下重复时间梯度比较。",
-        "resultSummary": "中时组趋势重复出现，长时组边际改善有限。",
+        "conditionSummary": "合成示例：中等规格 baseline，3、6、9 min 三组；记录环境温度 22 °C，后续调味与加热固定。环境温度仅作条件记录，不作因果推断。",
+        "methodSummary": "合成示例：按修订后的统一九点评分说明独立重复三个时间梯度；明确评分方向，与 Run 1 对照时保留记录口径差异。",
+        "resultSummary": "合成记录：6 min 组腥味 2.6 分、完整性 7.9 分、综合接受度 7.1 分；3 min 组综合接受度 6.2 分，9 min 组 7.0 分。中时组趋势重复出现，长时组边际改善有限。",
         "conclusion": "6 min 组作为后续组合实验候选条件。",
         "summaryOther": "记录日期：2026-07-27。",
         "rating": "good",
         "tags": [
           "去腥",
           "重复运行"
-        ]
+        ],
+        "variableParameterSummary": "自变量：预处理时间 3 / 6 / 9 min；控制条件：中等规格、同一调味方案与固定加热时间；观察指标：腥味强度、鱼体完整性、综合接受度（均为九点评分，单位：分）。腥味越低越好，其余越高越好。"
       },
       {
         "ref": "run_sweet_sour_1",
@@ -458,7 +541,8 @@
         "tags": [
           "糖醋水平",
           "第一轮"
-        ]
+        ],
+        "variableParameterSummary": "低/中/高三个合成糖酸水平；记录腥味与综合接受度（九点评分，分），不以此推导真实配方。"
       },
       {
         "ref": "run_sweet_sour_2",
@@ -474,7 +558,8 @@
         "tags": [
           "糖醋组合",
           "进行中"
-        ]
+        ],
+        "variableParameterSummary": "三个合成候选组合；一次加入/分阶段加入；第三组尚未整理完，不填最终指标数值。"
       },
       {
         "ref": "run_heating_1",
@@ -491,7 +576,8 @@
         "tags": [
           "加热时间",
           "不确定结果"
-        ]
+        ],
+        "variableParameterSummary": "短/中/长三个合成加热时间条件；嫩度和完整性为九点评分（分），校准未统一，不填可比数值。"
       }
     ],
     "literature": [

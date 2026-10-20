@@ -1931,7 +1931,7 @@ dependencies = [
 
 [[package]]
 name = "labpod"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "chrono",
  "reqwest 0.12.28",

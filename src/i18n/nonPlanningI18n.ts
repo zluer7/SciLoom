@@ -3,6 +3,16 @@ import type { Language } from "./translations";
 type UiDictionary = Record<string, string>;
 
 const englishUi: UiDictionary = {
+  "结构化内容与 Raw 文稿分别保存。": "Structured content and Raw text are saved separately.",
+  "结构化内容加载失败。": "Structured content could not be loaded.",
+  "正在加载结构化内容…": "Loading structured content…",
+  "保存结构化内容": "Save structured content",
+  "结构化草稿尚未保存。": "Structured changes have not been saved.",
+  "结构化草稿已取消；Raw 草稿保持，已提交的内容不会撤销。": "Structured changes discarded. Raw draft and committed content are unchanged.",
+  "结构化内容已保存并读回；Raw 文稿未改写。": "Structured content saved and verified. Raw text was not changed.",
+  "结构化保存失败，草稿保留。": "Structured save failed; your draft is retained.",
+  "结构化字段定义已变化，草稿保留且暂停保存。请取消草稿并重新打开后核对。": "The structured field definition changed. Your draft is retained and saving is paused. Cancel and reopen to review.",
+  "已保存的结构笔记；不含文稿正文。": "Saved structured notes; manuscript text is excluded.",
   "文稿切换需要恢复处理。": "The manuscript switch needs recovery.",
   "当前稿已切换，但显示信息尚未更新完成。": "The current manuscript has switched, but its displayed information has not finished updating.",
   "文稿状态已变化，请重新加载后确认切换。": "The manuscript state has changed. Reload before confirming the switch.",

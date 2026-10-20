@@ -46,8 +46,8 @@ export const F3_MANUSCRIPT_EDITOR_REFERENCE_ASSETS = Object.freeze({
 });
 
 export const F3_MANUSCRIPT_EDITOR_MINIMUM_DESKTOP = Object.freeze({
-  width: 1100,
-  height: 720
+  width: 960,
+  height: 640
 });
 
 export const F3_MANUSCRIPT_EDITOR_LAYOUT_TOKENS = Object.freeze({
@@ -58,9 +58,9 @@ export const F3_MANUSCRIPT_EDITOR_LAYOUT_TOKENS = Object.freeze({
   footerHeight: "72px",
   footerLeftPadding: "20px",
   footerRightPadding: "28px",
-  leftPanelWidth: "320px",
+  leftPanelWidth: "clamp(320px, 30vw, 440px)",
   columnDividerWidth: "1px",
-  mainBodyMinHeight: "584px",
+  mainBodyMinHeight: "0px",
   leftPanelPadding: "20px",
   rightPanelPadding: "18px",
   currentToolbarHeight: "96px",
@@ -71,7 +71,7 @@ export const F3_MANUSCRIPT_EDITOR_LAYOUT_TOKENS = Object.freeze({
   actionButtonHeight: "40px",
   actionButtonRadius: "9px",
   actionButtonGap: "8px",
-  editorMinHeight: "480px",
+  editorMinHeight: "0px",
   editorHorizontalPadding: "16px",
   editorVerticalPadding: "2px",
   leftPanelOverflow: "auto",

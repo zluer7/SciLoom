@@ -6,6 +6,9 @@ export interface NativeOpenFileDiagnostics {
   powershellStarted: boolean;
   powershellSuccess: boolean;
   statusCode?: number | null;
+  nativeBackend?: "macos-open";
+  nativeStarted?: boolean;
+  nativeSuccess?: boolean;
 }
 
 export interface NativeFolderValidation {

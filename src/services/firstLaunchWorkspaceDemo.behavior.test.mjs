@@ -333,7 +333,7 @@ test("unknown inventory and failed execute are nonfatal and never retried", asyn
 test("canonical Demo bytes, Tauri mapping, and release fallback boundary are fixed", () => {
   const destination = readFileSync(resolve(root, "demo/west-lake-vinegar-fish/project-import.json"));
   const hash = (bytes) => createHash("sha256").update(bytes).digest("hex").toUpperCase();
-  assert.equal(destination.length, 58_274);
+  assert.equal(destination.length, 63_500);
   assert.equal(hash(destination), subject.BUNDLED_DEMO_SHA256);
 
   const config = JSON.parse(readFileSync(resolve(root, "src-tauri/tauri.conf.json"), "utf8"));

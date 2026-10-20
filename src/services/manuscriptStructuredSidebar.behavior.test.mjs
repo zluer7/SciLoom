@@ -42,6 +42,9 @@ const bundle = await build({
 const module = { exports: {} };
 new Function("require", "module", "exports", bundle.outputFiles[0].text)(createRequire(import.meta.url), module, module.exports);
 const subject = module.exports;
+async function editSidebar(renderer) {
+  await act(async () => renderer.root.findByProps({ className: "manuscript-structured-sidebar__actions" }).findAllByType("button")[0].props.onClick());
+}
 const wire = x => JSON.parse(JSON.stringify(x));
 const base = { created_at: "2026-09-01T00:00:00.000Z", updated_at: "2026-09-01T00:00:00.000Z", tags: "[]", source: "user", schema_version: 3 };
 const locations = { experiment: "experiments", experimentRun: "experiment_runs", literature: "literatures", resultItem: "result_items", finding: "findings", outputCandidate: "output_candidates", outputGap: "output_gaps", researchOutput: "outputs" };
@@ -164,6 +167,9 @@ test("mounted sidebar explicit save, cancel and errors preserve separate Raw byt
   const f = await fixture(), raw = join(f.directory, "raw.md"); writeFileSync(raw, "Raw original\r\n");
   const ref = React.createRef(); let renderer;
   await act(async () => { renderer = create(React.createElement(subject.Sidebar, { ref, identity: { ownerType: "literature", ownerId: "sc3-test-literature", channel: "literature_outline" }, disabled: false, onDraftChange() {}, ui: x => x })); });
+  assert.equal(renderer.root.findAllByType("textarea").length, 0);
+  assert.equal(ref.current.isDirty(), false);
+  await editSidebar(renderer);
   const summary = () => renderer.root.findAllByType("textarea")[0];
   await act(async () => { summary().props.onChange({ target: { value: "new summary" } }); });
   assert.equal(ref.current.isDirty(), true);
@@ -172,8 +178,12 @@ test("mounted sidebar explicit save, cancel and errors preserve separate Raw byt
   f.failWrite = false; await act(async () => { assert.equal(await ref.current.save(), true); });
   f.reopen(); assert.equal((await subject.readStructuredSidebar({ ownerType: "literature", ownerId: "sc3-test-literature", channel: "literature_outline" })).values.summary, "new summary");
   assert.equal(readFileSync(raw, "utf8"), "Raw original\r\n");
+  assert.equal(renderer.root.findAllByType("textarea").length, 0);
+  await editSidebar(renderer);
   await act(async () => { summary().props.onChange({ target: { value: "cancel me" } }); ref.current.discard(); });
-  assert.equal(summary().props.value, "new summary"); assert.equal(ref.current.isDirty(), false);
+  assert.equal(renderer.root.findAllByType("textarea").length, 0);
+  assert.ok(renderer.root.findAllByType("dd").some(node => node.children.join("") === "new summary"));
+  assert.equal(ref.current.isDirty(), false);
   await act(async () => renderer.unmount()); f.close();
 });
 
@@ -193,6 +203,7 @@ test("mounted Review descriptor refresh preserves the admitted unsaved draft and
   const f = await fixture(), ref = React.createRef(); let renderer;
   const properties = { ref, identity: { ownerType: "review", ownerId: "sc3-test-review", channel: "primary", reviewType: "custom" }, disabled: false, onDraftChange() {}, ui: x => x };
   await act(async () => { renderer = create(React.createElement(subject.Sidebar, properties)); });
+  await editSidebar(renderer);
   await act(async () => { renderer.root.findAllByType("textarea")[0].props.onChange({ target: { value: "keep unsaved Review draft" } }); });
   await act(async () => { renderer.update(React.createElement(subject.Sidebar, { ...properties, identity: { ...properties.identity, reviewType: "periodic" } })); });
   assert.equal(renderer.root.findAllByType("textarea")[0].props.value, "keep unsaved Review draft");
@@ -222,6 +233,7 @@ test("mounted shared current window separates Raw Save and structured Save and g
     sessionAdapter: adapter, footerLeadingActions: [{ key: "switch", label: "切换文稿", onClick: () => { switches++; } }],
     onCancel: () => { closes++; }
   }))); });
+  await editSidebar(renderer);
   const summary = () => renderer.root.findAllByType("textarea")[0];
   await act(async () => { summary().props.onChange({ target: { value: "structured pending" } }); });
   state = { ...state, dirty: true }; rawDraft = "New Raw exact\r\n";
@@ -243,4 +255,107 @@ test("mounted shared current window separates Raw Save and structured Save and g
   assert.equal((await subject.readStructuredSidebar({ ...identity, ownerId: "sc3-test-literature" })).values.summary, "structured pending");
   assert.equal(readFileSync(rawPath, "utf8"), "New Raw exact\r\n");
   await act(async () => renderer.unmount()); f.close();
+});
+
+test("entering and cancelling unchanged edit mode never writes or marks dirty; read-only stays a summary", async () => {
+  const f = await fixture(), ref = React.createRef(); let renderer;
+  const props = { ref, identity: { ownerType: "experiment", ownerId: "sc3-test-experiment", channel: "primary" }, disabled: false, onDraftChange() {}, ui: x => x };
+  await act(async () => { renderer = create(React.createElement(subject.Sidebar, props)); });
+  assert.equal(renderer.root.findAllByType("textarea").length, 0);
+  await editSidebar(renderer);
+  assert.equal(renderer.root.findAllByType("textarea").length, 6);
+  assert.equal(ref.current.isDirty(), false);
+  await act(async () => ref.current.discard());
+  assert.equal(renderer.root.findAllByType("textarea").length, 0);
+  assert.equal(f.writes, 0);
+  await act(async () => { renderer.update(React.createElement(subject.Sidebar, { ...props, disabled: true })); });
+  assert.equal(renderer.root.findAllByType("button")[0].props.disabled, true);
+  assert.equal(renderer.root.findAllByType("textarea").length, 0);
+  await act(async () => renderer.unmount()); f.close();
+});
+
+test("A to B to A cannot revive a late read on the same sidebar mount", async () => {
+  const f = await fixture(), originalIPC = globalThis.__sidebarIPC; let release;
+  const wait = new Promise(resolve => { release = resolve; });
+  globalThis.__sidebarIPC = async (command, args) => {
+    if (command === "db_get_record" && args.tableName === "literatures") await wait;
+    return originalIPC(command, args);
+  };
+  const props = { identity: { ownerType: "literature", ownerId: "sc3-test-literature", channel: "dedicated_notes" }, disabled: false, onDraftChange() {}, ui: x => x };
+  let renderer;
+  await act(async () => { renderer = create(React.createElement(subject.Sidebar, props)); });
+  await act(async () => { renderer.update(React.createElement(subject.Sidebar, { ...props, identity: { ...props.identity, ownerId: "other" } })); });
+  await act(async () => { renderer.update(React.createElement(subject.Sidebar, props)); release(); });
+  assert.equal(renderer.root.findAllByType("dd").length, 0);
+  assert.equal(renderer.root.findAllByType("textarea").length, 0);
+  assert.ok(renderer.root.findAllByProps({ role: "alert" }).length);
+  assert.equal(f.writes, 0);
+  await act(async () => renderer.unmount()); f.close();
+});
+
+test("late completed save after A to B to A does not replace the admitted draft or report success", async () => {
+  const f = await fixture(), originalIPC = globalThis.__sidebarIPC, ref = React.createRef(); let release;
+  const wait = new Promise(resolve => { release = resolve; });
+  const props = { ref, identity: { ownerType: "literature", ownerId: "sc3-test-literature", channel: "dedicated_notes" }, disabled: false, onDraftChange() {}, ui: x => x };
+  let renderer, saving;
+  await act(async () => { renderer = create(React.createElement(subject.Sidebar, props)); });
+  await editSidebar(renderer);
+  await act(async () => renderer.root.findAllByType("textarea")[0].props.onChange({ target: { value: "pending exact owner A" } }));
+  globalThis.__sidebarIPC = async (command, args) => {
+    if (command === "db_update_record") await wait;
+    return originalIPC(command, args);
+  };
+  await act(async () => { saving = ref.current.save(); });
+  await act(async () => renderer.update(React.createElement(subject.Sidebar, { ...props, identity: { ...props.identity, ownerId: "other" } })));
+  await act(async () => renderer.update(React.createElement(subject.Sidebar, props)));
+  await act(async () => { release(); assert.equal(await saving, false); });
+  assert.equal(renderer.root.findAllByType("textarea")[0].props.value, "pending exact owner A");
+  assert.equal(ref.current.isDirty(), true);
+  assert.equal(renderer.root.findAllByProps({ role: "status" }).some(n => n.children.join("").includes("已保存并读回")), false);
+  await act(async () => renderer.unmount()); f.close();
+});
+
+test("a committed write with mismatching readback keeps its draft and warning through cancel", async () => {
+  const f = await fixture(), originalIPC = globalThis.__sidebarIPC, ref = React.createRef();
+  const props = { ref, identity: { ownerType: "literature", ownerId: "sc3-test-literature", channel: "literature_outline" }, disabled: false, onDraftChange() {}, ui: x => x };
+  let renderer;
+  await act(async () => { renderer = create(React.createElement(subject.Sidebar, props)); });
+  await editSidebar(renderer);
+  await act(async () => renderer.root.findAllByType("textarea")[0].props.onChange({ target: { value: "intended" } }));
+  globalThis.__sidebarIPC = async (command, args) => {
+    const result = await originalIPC(command, args);
+    if (command === "db_update_record" && args.tableName === "literatures") f.record("literatures", props.identity.ownerId, { abstract: "different readback" });
+    return result;
+  };
+  await act(async () => assert.equal(await ref.current.save(), false));
+  assert.equal(renderer.root.findAllByType("textarea")[0].props.value, "intended");
+  assert.ok(renderer.root.findAllByProps({ role: "alert" }).some(n => n.children.join("").includes("读回")));
+  await act(async () => ref.current.discard());
+  assert.ok(renderer.root.findAllByProps({ role: "alert" }).some(n => n.children.join("").includes("读回")));
+  assert.equal(f.record("literatures", props.identity.ownerId).abstract, "different readback");
+  await act(async () => renderer.unmount()); f.close();
+});
+
+test("representative notes, Experiment, Review and Output sidebars share readonly/edit/save with durable canonical readback", async () => {
+  const f = await fixture();
+  for (const identity of [
+    { ownerType: "literature", ownerId: "sc3-test-literature", channel: "dedicated_notes" },
+    { ownerType: "experiment", ownerId: "sc3-test-experiment", channel: "primary" },
+    { ownerType: "review", ownerId: "sc3-test-review", channel: "primary", reviewType: "periodic" },
+    { ownerType: "finding", ownerId: "sc3-test-finding", channel: "primary" }
+  ]) {
+    if (identity.ownerType === "review") f.put("review", { ...f.get("review"), reviewType: "periodic", descriptorIdentity: "review/primary/periodic/v1", outlineSections: subject.reconcileReviewOutlineSections("periodic", []) });
+    const ref = React.createRef(); let renderer;
+    await act(async () => { renderer = create(React.createElement(subject.Sidebar, { ref, identity, disabled: false, onDraftChange() {}, ui: x => x })); });
+    assert.equal(renderer.root.findAllByType("textarea").length, 0);
+    await editSidebar(renderer);
+    const expected = `TEST_ONLY ${identity.ownerType}/${identity.channel} saved`;
+    await act(async () => renderer.root.findAllByType("textarea")[0].props.onChange({ target: { value: expected } }));
+    await act(async () => assert.equal(await ref.current.save(), true));
+    assert.equal(renderer.root.findAllByType("textarea").length, 0);
+    f.reopen();
+    assert.equal(Object.values((await subject.readStructuredSidebar(identity)).values)[0], expected);
+    await act(async () => renderer.unmount());
+  }
+  f.close();
 });
