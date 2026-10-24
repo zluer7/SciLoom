@@ -17,6 +17,7 @@ const nodeTests = [
   "src/services/outputCandidateCommitService.behavior.test.mjs",
   "src/services/projectImportV1.behavior.test.mjs",
   "src/services/firstLaunchWorkspaceDemo.behavior.test.mjs",
+  "src/services/managedRootFirstLayerAuthority.behavior.test.mjs",
   "src/services/sharedCurrentProjectSelection.behavior.test.mjs",
   "src/services/runtimePageSelection.behavior.test.mjs",
   "src/services/routeNodeDateNormalization.semantic.test.mjs",
