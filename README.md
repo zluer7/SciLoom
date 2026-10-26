@@ -1,8 +1,10 @@
 # SciLoom 科研舱
 
-SciLoom 是面向科研人员的 AI 辅助桌面科研管理软件，致力解决科研中的实际问题。本项目开源、开放，持续维护，欢迎大家体验、测试、反馈、加入我们...
+SciLoom 是面向科研人员的 AI 辅助桌面科研管理软件，致力解决科研中的实际问题。
 
-本源码候选版本为 **1.1.1**。安装包发布状态以 [GitHub Releases](https://github.com/zluer7/SciLoom/releases) 为准；本文件本身不表示已发布。
+本项目**开源、开放，持续维护**，欢迎大家体验、测试、反馈、加入我们......
+
+本源码最新版本为 1.1.1。安装包发布状态以 [GitHub Releases](https://github.com/zluer7/SciLoom/releases) 为准；本文件本身不表示已发布。
 
 ## 主要能力
 
