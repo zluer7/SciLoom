@@ -1100,13 +1100,15 @@ export const planningOwnerAuthorityPort = createPlanningOwnerAuthorityPort({
       (request?.intent === "ownerRestore" && (request.ownerType === "task" || request.ownerType === "routeNode")) ||
       request?.intent === "provisioningRead" ||
       request?.intent === "provisioningWrite" ||
-      request?.intent === "metadataWrite"
+      request?.intent === "metadataWrite" ||
+      request?.intent === "managedRootWrite"
     ) {
       // Project/owner writers, provisioning, and FileRef/Binding metadata
       // authority need only first-layer Project/owner identity and lifecycle.
-      // Keeping Review composition out prevents unrelated missing Review
-      // structure from becoming a writer-admission prerequisite; exact Review
-      // consumers remain on the full seam.
+      // Managed-root configuration (first-launch workspace) needs only the
+      // repository identity. Keeping Review composition out prevents unrelated
+      // missing Review structure from becoming a writer-admission prerequisite;
+      // exact Review consumers remain on the full seam.
       return getPlanningFirstLayerRepositoryEnvelope() as unknown as Promise<
         PlanningAuthorityEnvelopeView
       >;
